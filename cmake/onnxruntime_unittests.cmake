@@ -703,6 +703,9 @@ if (onnxruntime_BUILD_SHARED_LIB)
   if(onnxruntime_USE_NSYNC)
     list(APPEND onnxruntime_shared_lib_test_LIBS nsync_cpp)
   endif()
+  if (CMAKE_SYSTEM_NAME STREQUAL "Android")
+    list(APPEND onnxruntime_shared_lib_test_LIBS log)
+  endif()
   AddTest(DYN
           TARGET onnxruntime_shared_lib_test
           SOURCES ${onnxruntime_shared_lib_test_SRC}

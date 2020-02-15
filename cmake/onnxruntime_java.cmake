@@ -6,9 +6,11 @@
 # Setup Java compilation
 include(FindJava)
 find_package(Java REQUIRED)
-find_package(JNI REQUIRED)
 include(UseJava)
-include_directories(${JNI_INCLUDE_DIRS})
+if (NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
+    find_package(JNI REQUIRED)
+    include_directories(${JNI_INCLUDE_DIRS})
+endif()
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11")
 
 set(JAVA_ROOT ${REPO_ROOT}/java)
@@ -54,7 +56,10 @@ file(GLOB onnxruntime4j_native_src
 add_library(onnxruntime4j_jni SHARED ${onnxruntime4j_native_src} ${onnxruntime4j_generated})
 onnxruntime_add_include_to_target(onnxruntime4j_jni onnxruntime_session)
 target_include_directories(onnxruntime4j_jni PRIVATE ${REPO_ROOT}/include ${REPO_ROOT}/java/src/main/native)
-target_link_libraries(onnxruntime4j_jni PUBLIC ${JNI_LIBRARIES} onnxruntime onnxruntime4j_generated)
+target_link_libraries(onnxruntime4j_jni PUBLIC onnxruntime onnxruntime4j_generated)
+if (NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
+    target_link_libraries(onnxruntime4j_jni PUBLIC ${JNI_LIBRARIES})
+endif()
 
 # Now the jar, jni binary and shared lib binary have been built, now to build the jar with the binaries added.
 

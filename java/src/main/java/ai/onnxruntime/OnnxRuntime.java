@@ -10,6 +10,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.Properties;
 import java.util.logging.Level;
@@ -48,66 +49,79 @@ final class OnnxRuntime {
 
     private OnnxRuntime() {}
 
+    private static boolean isAndroid() {
+        try {
+            Class.forName("android.app.Activity");
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+    }
+
     /**
      * Loads the native C library.
      * @throws IOException If it can't write to disk to copy out the library from the jar file.
      */
     static synchronized void init() throws IOException {
         if (!loaded) {
-            // Check system properties for load time configuration.
-            Properties props = System.getProperties();
-            boolean debug = props.containsKey(LIBRARY_LOAD_LOGGING);
-            boolean loadLibraryPath = props.containsKey(LOAD_LIBRARY_PATH);
-            if (loadLibraryPath) {
-                if (debug) {
-                    logger.info("Loading from java.library.path");
-                }
-                try {
-                    for (String libraryName : libraryNames) {
-                        if (debug) {
-                            logger.info("Loading " + libraryName + " from java.library.path");
-                        }
-                        System.loadLibrary(libraryName);
-                    }
-                } catch (UnsatisfiedLinkError e) {
-                    logger.log(Level.SEVERE, "Failed to load onnx-runtime library from library path.");
-                    throw e;
-                }
+            if (isAndroid()) {
+                System.loadLibrary("onnxruntime4j_jni");
             } else {
-                if (debug) {
-                    logger.info("Loading from classpath resource");
-                }
-                try {
-                    for (String libraryName : libraryNames) {
-                        try {
-                            // This code path is used during testing.
-                            String libraryFromJar = "/" + System.mapLibraryName(libraryName);
-                            if (debug) {
-                                logger.info("Attempting to load library from classpath using " + libraryFromJar);
-                            }
-                            String tempLibraryPath = createTempFileFromResource(libraryFromJar, debug);
-                            if (debug) {
-                                logger.info("Copied resource " + libraryFromJar + " to location " + tempLibraryPath);
-                            }
-                            System.load(tempLibraryPath);
-                        } catch (Exception e) {
-                            if (debug) {
-                                logger.info("Failed to load from testing location, looking for /lib/<library-name>");
-                            }
-                            String libraryFromJar = "/lib/" + System.mapLibraryName(libraryName);
-                            if (debug) {
-                                logger.info("Attempting to load library from classpath using " + libraryFromJar);
-                            }
-                            String tempLibraryPath = createTempFileFromResource(libraryFromJar, debug);
-                            if (debug) {
-                                logger.info("Copied resource " + libraryFromJar + " to location " + tempLibraryPath);
-                            }
-                            System.load(tempLibraryPath);
-                        }
+                // Check system properties for load time configuration.
+                Properties props = System.getProperties();
+                boolean debug = props.containsKey(LIBRARY_LOAD_LOGGING);
+                boolean loadLibraryPath = props.containsKey(LOAD_LIBRARY_PATH);
+                if (loadLibraryPath) {
+                    if (debug) {
+                        logger.info("Loading from java.library.path");
                     }
-                } catch (IOException e) {
-                    logger.log(Level.SEVERE, "Failed to load onnx-runtime library from jar");
-                    throw e;
+                    try {
+                        for (String libraryName : libraryNames) {
+                            if (debug) {
+                                logger.info("Loading " + libraryName + " from java.library.path");
+                            }
+                            System.loadLibrary(libraryName);
+                        }
+                    } catch (UnsatisfiedLinkError e) {
+                        logger.log(Level.SEVERE, "Failed to load onnx-runtime library from library path.");
+                        throw e;
+                    }
+                } else {
+                    if (debug) {
+                        logger.info("Loading from classpath resource");
+                    }
+                    try {
+                        for (String libraryName : libraryNames) {
+                            try {
+                                // This code path is used during testing.
+                                String libraryFromJar = "/" + System.mapLibraryName(libraryName);
+                                if (debug) {
+                                    logger.info("Attempting to load library from classpath using " + libraryFromJar);
+                                }
+                                String tempLibraryPath = createTempFileFromResource(libraryFromJar, debug);
+                                if (debug) {
+                                    logger.info("Copied resource " + libraryFromJar + " to location " + tempLibraryPath);
+                                }
+                                System.load(tempLibraryPath);
+                            } catch (Exception e) {
+                                if (debug) {
+                                    logger.info("Failed to load from testing location, looking for /lib/<library-name>");
+                                }
+                                String libraryFromJar = "/lib/" + System.mapLibraryName(libraryName);
+                                if (debug) {
+                                    logger.info("Attempting to load library from classpath using " + libraryFromJar);
+                                }
+                                String tempLibraryPath = createTempFileFromResource(libraryFromJar, debug);
+                                if (debug) {
+                                    logger.info("Copied resource " + libraryFromJar + " to location " + tempLibraryPath);
+                                }
+                                System.load(tempLibraryPath);
+                            }
+                        }
+                    } catch (IOException e) {
+                        logger.log(Level.SEVERE, "Failed to load onnx-runtime library from jar");
+                        throw e;
+                    }
                 }
             }
             ortApiHandle = initialiseAPIBase(ORT_API_VERSION_1);
