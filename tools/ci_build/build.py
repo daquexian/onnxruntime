@@ -106,6 +106,7 @@ Use the individual flags to only run the specified stages.
                         help="Create ARM64 makefiles. Requires --update and no existing cache CMake setup. Delete CMakeCache.txt if needed")
     parser.add_argument("--msvc_toolset", help="MSVC toolset to use. e.g. 14.11")
     parser.add_argument("--android", action='store_true', help='Build for Android')
+    parser.add_argument("--android_sdk_path", type=str, help='Path to the Android SDK')
     parser.add_argument("--android_abi", type=str, default='arm64-v8a',
             help='')
     parser.add_argument("--android_api", type=int, default=27,
@@ -1034,6 +1035,11 @@ def main():
         if args.build_wheel:
             nightly_build = bool(os.getenv('NIGHTLY_BUILD') == '1')
             build_python_wheel(source_dir, build_dir, configs, args.use_cuda, args.use_ngraph, args.use_dnnl, args.use_tensorrt, args.use_openvino, args.use_nuphar, nightly_build)
+        if args.android:
+            for config in configs:
+                config_build_dir = get_config_build_dir(build_dir, config)
+                build_aar_args = [sys.executable, os.path.join(source_dir, "java", "android_package", "build_aar.py"), "--android_sdk", args.android_sdk_path, "--android_abi", args.android_abi, "--compiled_lib_dir", config_build_dir, "--dest", config_build_dir]
+                run_subprocess(build_aar_args)
 
     if args.gen_doc and (args.build or args.test):
         generate_documentation(source_dir, build_dir, configs)
