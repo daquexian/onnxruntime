@@ -1,4 +1,4 @@
-daquexian's ONNX Runtime for Android! Go to https://github.com/daquexian/onnxruntime/releases for AAR download!
+daquexian's ONNX Runtime for Android! Go to https://github.com/daquexian/onnxruntime/releases for AAR download! Java API Docs [here](docs/Java_API.md).
 
 <p align="center"><img width="50%" src="docs/images/ONNX_Runtime_logo_dark.png" /></p>
 
