@@ -49,6 +49,9 @@ class Model {
   explicit Model(std::unique_ptr<ONNX_NAMESPACE::ModelProto> model_proto,
                  const IOnnxRuntimeOpSchemaRegistryList* local_registries,
                  const logging::Logger& logger);
+  virtual ~Model() {
+      std::cout << "mmmm" << std::endl;
+  }
 
   // Get model's IR version.
   // Return <kNoVersion> if not specified.

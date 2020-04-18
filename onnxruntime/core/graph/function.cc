@@ -380,7 +380,9 @@ FunctionImpl::FunctionImpl(const onnxruntime::Graph& graph,
   ORT_ENFORCE(status.IsOK(), "Resolve subgraph failed:", status.ErrorMessage());
 }  // namespace onnxruntime
 
-FunctionImpl::~FunctionImpl() = default;
+FunctionImpl::~FunctionImpl() {
+    std::cout << "hasdfasdf" << std::endl;
+}
 
 const ONNX_NAMESPACE::OpSchema& FunctionImpl::OpSchema() const {
   return *op_schema_;

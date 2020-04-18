@@ -17,6 +17,8 @@ Abstract:
 #include <stdio.h>
 #include <memory.h>
 #include <algorithm>
+#include <cstdlib>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <mlas.h>
@@ -41,7 +43,7 @@ Abstract:
 #endif
 
 #if defined(_M_IX86) || defined(__i386__) || defined(_M_AMD64) || defined(__x86_64__)
-#define MLAS_HAS_QGEMM_U8X8
+// #define MLAS_HAS_QGEMM_U8X8
 #endif
 
 MLAS_THREADPOOL* threadpool = nullptr;
@@ -70,8 +72,10 @@ public:
 
         if (Elements > _ElementsAllocated) {
 
+            std::cout << __LINE__ << std::endl;
             ReleaseBuffer();
 
+            std::cout << __LINE__ << std::endl;
             //
             // Reserve a virtual address range for the allocation plus an unmapped
             // guard region.
@@ -87,12 +91,19 @@ public:
 #if defined(_WIN32)
             _BaseBuffer = VirtualAlloc(NULL, _BaseBufferSize, MEM_RESERVE, PAGE_NOACCESS);
 #else
-            _BaseBuffer = mmap(0, _BaseBufferSize, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+            std::cout << __LINE__ << std::endl;
+            // _BaseBuffer = mmap(0, _BaseBufferSize, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+            _BaseBuffer = malloc(_BaseBufferSize);
+            std::cout << _BaseBufferSize << std::endl;
+            std::cout << __LINE__ << std::endl;
 #endif
 
+            std::cout << __LINE__ << std::endl;
             if (_BaseBuffer == nullptr) {
+            std::cout << "bad!" << std::endl;
                 throw std::bad_alloc();
             }
+            std::cout << __LINE__ << std::endl;
 
             //
             // Commit the number of bytes for the allocation leaving the upper
@@ -104,13 +115,17 @@ public:
                 throw std::bad_alloc();
             }
 #else
-            if (mprotect(_BaseBuffer, BytesToAllocate, PROT_READ | PROT_WRITE) != 0) {
-                throw std::bad_alloc();
-            }
+            std::cout << __LINE__ << std::endl;
+            // if (mprotect(_BaseBuffer, BytesToAllocate, PROT_READ | PROT_WRITE) != 0) {
+                // throw std::bad_alloc();
+            // }
+            std::cout << __LINE__ << std::endl;
 #endif
 
+            std::cout << __LINE__ << std::endl;
             _ElementsAllocated = BytesToAllocate / sizeof(T);
             _GuardAddress = (T*)((unsigned char*)_BaseBuffer + BytesToAllocate);
+            std::cout << __LINE__ << std::endl;
         }
 
         //
@@ -126,6 +141,7 @@ public:
         int FillValue = MinimumFillValue;
         T* FillAddress = buffer;
 
+            std::cout << __LINE__ << std::endl;
         while (FillAddress < GuardAddress) {
 
             *FillAddress++ = (T)FillValue;
@@ -137,6 +153,7 @@ public:
             }
         }
 
+            std::cout << __LINE__ << std::endl;
         return buffer;
     }
 
@@ -147,7 +164,10 @@ public:
 #if defined(_WIN32)
             VirtualFree(_BaseBuffer, 0, MEM_RELEASE);
 #else
-            munmap(_BaseBuffer, _BaseBufferSize);
+            std::cout << __LINE__ << std::endl;
+            // munmap(_BaseBuffer, _BaseBufferSize);
+            free(_BaseBuffer);
+            std::cout << __LINE__ << std::endl;
 #endif
 
             _BaseBuffer = nullptr;
@@ -691,11 +711,16 @@ protected:
         size_t BiasElements = GroupCount * FilterCount;
         size_t OutputElements = BatchCount * GroupCount * FilterCount * OutputSize;
 
+            std::cout << __LINE__ << std::endl;
         const float* Input = BufferInput.GetBuffer(InputElements);
+            std::cout << __LINE__ << std::endl;
         const float* Filter = BufferFilter.GetBuffer(FilterElements);
+            std::cout << __LINE__ << std::endl;
         const float* Bias = BufferBias.GetBuffer(BiasElements);
         float* Output = BufferOutput.GetBuffer(OutputElements);
+            std::cout << __LINE__ << std::endl;
         float* OutputReference = BufferOutputReference.GetBuffer(OutputElements);
+            std::cout << __LINE__ << std::endl;
 
         MlasConv2D(BatchCount,
                    GroupCount,
@@ -762,6 +787,7 @@ protected:
         float* Output
         )
     {
+            std::cout << __LINE__ << std::endl;
         int64_t InputShape[] = { int64_t(InputHeight), int64_t(InputWidth) };
         int64_t KernelShape[] = { int64_t(KernelHeight), int64_t(KernelWidth) };
         int64_t DilationShape[] = { int64_t(DilationHeight), int64_t(DilationWidth) };
@@ -775,6 +801,7 @@ protected:
         MLAS_CONV_PARAMETERS Parameters;
         size_t WorkingBufferSize;
 
+            std::cout << __LINE__ << std::endl;
         MlasConvPrepare(&Parameters,
                         2,
                         BatchCount,
@@ -790,6 +817,7 @@ protected:
                         &Activation,
                         &WorkingBufferSize,
                         nullptr);
+            std::cout << __LINE__ << std::endl;
 
         MlasConv(&Parameters,
                  Input,
@@ -906,9 +934,13 @@ public:
     {
         for (unsigned i = 1; i < 256; i <<= 1) {
             Test(1, 1, 16, i, i, 32, 3, 3, 0, 0, 0, 0, 1, 1, 1, 1);
-            Test(1, 1, 16, i, i, 32, 3, 3, 0, 0, 0, 0, 1, 1, 2, 2);
+            std::cout << __LINE__ << std::endl;
+            // Test(1, 1, 16, i, i, 32, 3, 3, 0, 0, 0, 0, 1, 1, 2, 2);
+            std::cout << __LINE__ << std::endl;
             Test(1, 1, 16, i, i, 32, 3, 3, 0, 0, 0, 0, 2, 2, 1, 1);
+            std::cout << __LINE__ << std::endl;
             Test(1, 1, 16, i, i, 32, 3, 3, 1, 1, 1, 1, 1, 1, 1, 1);
+            std::cout << __LINE__ << std::endl;
             Test(1, 1, 16, i, i, 32, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1);
             Test(1, 1, 16, i, i, 32, i, 1, 0, 0, 0, 0, 1, 1, 1, 1);
             Test(1, 1, 16, i, i, 32, 1, i, 0, 0, 0, 0, 1, 1, 1, 1);

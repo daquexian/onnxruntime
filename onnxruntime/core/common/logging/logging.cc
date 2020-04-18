@@ -70,27 +70,28 @@ Logger* LoggingManager::s_default_logger_ = nullptr;
 
 static minutes InitLocaltimeOffset(const time_point<system_clock>& epoch) noexcept;
 
-const LoggingManager::Epochs& LoggingManager::GetEpochs() noexcept {
-  // we save the value from system clock (which we can convert to a timestamp) as well as the high_resolution_clock.
-  // from then on, we use the delta from the high_resolution_clock and apply that to the
-  // system clock value.
-  static Epochs epochs{high_resolution_clock::now(),
-                       system_clock::now(),
-                       InitLocaltimeOffset(system_clock::now())};
-  return epochs;
-}
+// const LoggingManager::Epochs& LoggingManager::GetEpochs() noexcept {
+//   // we save the value from system clock (which we can convert to a timestamp) as well as the high_resolution_clock.
+//   // from then on, we use the delta from the high_resolution_clock and apply that to the
+//   // system clock value.
+//   static Epochs epochs{high_resolution_clock::now(),
+//                        system_clock::now(),
+//                        InitLocaltimeOffset(system_clock::now())};
+//   return epochs;
+// }
 
 LoggingManager::LoggingManager(std::unique_ptr<ISink> sink, Severity default_min_severity, bool filter_user_data,
                                const InstanceType instance_type, const std::string* default_logger_id,
                                int default_max_vlog_level)
-    : sink_{std::move(sink)},
-      default_min_severity_{default_min_severity},
-      default_filter_user_data_{filter_user_data},
-      default_max_vlog_level_{default_max_vlog_level},
-      owns_default_logger_{false} {
-  if (sink_ == nullptr) {
-    throw std::logic_error("ISink must be provided.");
-  }
+    // : sink_{std::move(sink)},
+    //   default_min_severity_{default_min_severity},
+    //   default_filter_user_data_{filter_user_data},
+    //   default_max_vlog_level_{default_max_vlog_level},
+    //   owns_default_logger_{false} 
+{
+  // if (sink_ == nullptr) {
+  //   throw std::logic_error("ISink must be provided.");
+  // }
 
   if (instance_type == InstanceType::Default) {
     if (default_logger_id == nullptr) {
@@ -138,7 +139,7 @@ void LoggingManager::CreateDefaultLogger(const std::string& logger_id) {
 }
 
 std::unique_ptr<Logger> LoggingManager::CreateLogger(const std::string& logger_id) {
-  return CreateLogger(logger_id, default_min_severity_, default_filter_user_data_, default_max_vlog_level_);
+  return CreateLogger(logger_id, Severity::kINFO, false, 0);
 }
 
 std::unique_ptr<Logger> LoggingManager::CreateLogger(const std::string& logger_id,
@@ -150,11 +151,11 @@ std::unique_ptr<Logger> LoggingManager::CreateLogger(const std::string& logger_i
 }
 
 void LoggingManager::Log(const std::string& logger_id, const Capture& message) const {
-  sink_->Send(GetTimestamp(), logger_id, message);
+  // sink_->Send(GetTimestamp(), logger_id, message);
 }
 
 void LoggingManager::SendProfileEvent(profiling::EventRecord& eventRecord) const {
-  sink_->SendProfileEvent(eventRecord);
+  // sink_->SendProfileEvent(eventRecord);
 }
 
 static minutes InitLocaltimeOffset(const time_point<system_clock>& epoch) noexcept {
@@ -204,32 +205,34 @@ std::exception LoggingManager::LogFatalAndCreateException(const char* category,
 }
 
 unsigned int GetThreadId() {
-#ifdef _WIN32
-  return static_cast<unsigned int>(GetCurrentThreadId());
-#elif defined(__MACH__)
-  uint64_t tid64;
-  pthread_threadid_np(NULL, &tid64);
-  return static_cast<unsigned int>(tid64);
-#elif __FreeBSD__
-  long tid;
-  thr_self(&tid);
-  return static_cast<unsigned int>(tid);
-#else
-  return static_cast<unsigned int>(syscall(SYS_gettid));
-#endif
+    return 0;
+// #ifdef _WIN32
+//   return static_cast<unsigned int>(GetCurrentThreadId());
+// #elif defined(__MACH__)
+//   uint64_t tid64;
+//   pthread_threadid_np(NULL, &tid64);
+//   return static_cast<unsigned int>(tid64);
+// #elif __FreeBSD__
+//   long tid;
+//   thr_self(&tid);
+//   return static_cast<unsigned int>(tid);
+// #else
+//   return static_cast<unsigned int>(syscall(SYS_gettid));
+// #endif
 }
 
 //
 // Get current process id
 //
 unsigned int GetProcessId() {
-#ifdef _WIN32
-  return static_cast<unsigned int>(GetCurrentProcessId());
-#elif defined(__MACH__)
-  return static_cast<unsigned int>(getpid());
-#else
-  return static_cast<unsigned int>(syscall(SYS_getpid));
-#endif
+    return 0;
+// #ifdef _WIN32
+//   return static_cast<unsigned int>(GetCurrentProcessId());
+// #elif defined(__MACH__)
+//   return static_cast<unsigned int>(getpid());
+// #else
+//   return static_cast<unsigned int>(syscall(SYS_getpid));
+// #endif
 }
 
 }  // namespace logging
