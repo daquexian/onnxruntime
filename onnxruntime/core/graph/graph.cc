@@ -2808,5 +2808,6 @@ void Graph::AddFunction(const ONNX_NAMESPACE::FunctionProto* func_proto) {
 Graph::~Graph() {
   // nothing to do, but we put it here so we don't need to fully define types in Graph that are held in unique_ptr
   // such as   std::unique_ptr<FunctionContainer> function_container_;
+    std::cout << "hhhhh" << std::endl;
 }
 }  // namespace onnxruntime

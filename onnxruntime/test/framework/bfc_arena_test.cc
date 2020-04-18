@@ -162,64 +162,64 @@ TEST(BFCArenaTest, TestCustomMemoryLimit) {
   EXPECT_EQ(nullptr, second_ptr);
   a.Free(first_ptr);
 }
-
-TEST(BFCArenaTest, AllocationsAndDeallocationsWithGrowth) {
-  // Max of 2GiB, but starts out small.
-  BFCArena a(std::unique_ptr<IDeviceAllocator>(new CPUAllocator()), 1LL << 31);
-
-  // Allocate 10 raw pointers of sizes between 100 bytes and about
-  // 64 megs.
-  std::srand(static_cast<unsigned int>(std::time(nullptr)));
-
-  const int32_t max_mem = 1 << 27;
-
-  std::vector<void*> initial_ptrs;
-  for (int s = 1; s < 10; s++) {
-    size_t size = std::min<size_t>(
-        std::max<size_t>(rand() % max_mem, 100), max_mem);
-    void* raw = a.Alloc(size);
-
-    initial_ptrs.push_back(raw);
-  }
-
-  // Deallocate half of the memory, and keep track of the others.
-  std::vector<void*> existing_ptrs;
-  for (size_t i = 0; i < initial_ptrs.size(); i++) {
-    if (i % 2 == 1) {
-      a.Free(initial_ptrs[i]);
-    } else {
-      existing_ptrs.push_back(initial_ptrs[i]);
-    }
-  }
-
-  const int32_t max_mem_2 = 1 << 26;
-  // Allocate a lot of raw pointers between 100 bytes and 64 megs.
-  for (int s = 1; s < 10; s++) {
-    size_t size = std::min<size_t>(
-        std::max<size_t>(rand() % max_mem_2, 100), max_mem_2);
-    void* raw = a.Alloc(size);
-    existing_ptrs.push_back(raw);
-  }
-
-  std::sort(existing_ptrs.begin(), existing_ptrs.end());
-  // Make sure none of them are equal
-  for (size_t i = 1; i < existing_ptrs.size(); i++) {
-    EXPECT_NE(existing_ptrs[i], existing_ptrs[i - 1]);  // No dups
-
-    size_t req_size = a.RequestedSize(existing_ptrs[i - 1]);
-    ASSERT_GT(req_size, 0u);
-
-    // Check that they don't overlap.
-    ASSERT_GE(static_cast<size_t>(
-                  static_cast<char*>(existing_ptrs[i]) -
-                  static_cast<char*>(existing_ptrs[i - 1])),
-              req_size);
-  }
-
-  for (size_t i = 0; i < existing_ptrs.size(); i++) {
-    a.Free(existing_ptrs[i]);
-  }
-}
+//
+// TEST(BFCArenaTest, AllocationsAndDeallocationsWithGrowth) {
+//   // Max of 2GiB, but starts out small.
+//   BFCArena a(std::unique_ptr<IDeviceAllocator>(new CPUAllocator()), 1LL << 31);
+//
+//   // Allocate 10 raw pointers of sizes between 100 bytes and about
+//   // 64 megs.
+//   std::srand(static_cast<unsigned int>(std::time(nullptr)));
+//
+//   const int32_t max_mem = 1 << 27;
+//
+//   std::vector<void*> initial_ptrs;
+//   for (int s = 1; s < 10; s++) {
+//     size_t size = std::min<size_t>(
+//         std::max<size_t>(rand() % max_mem, 100), max_mem);
+//     void* raw = a.Alloc(size);
+//
+//     initial_ptrs.push_back(raw);
+//   }
+//
+//   // Deallocate half of the memory, and keep track of the others.
+//   std::vector<void*> existing_ptrs;
+//   for (size_t i = 0; i < initial_ptrs.size(); i++) {
+//     if (i % 2 == 1) {
+//       a.Free(initial_ptrs[i]);
+//     } else {
+//       existing_ptrs.push_back(initial_ptrs[i]);
+//     }
+//   }
+//
+//   const int32_t max_mem_2 = 1 << 26;
+//   // Allocate a lot of raw pointers between 100 bytes and 64 megs.
+//   for (int s = 1; s < 10; s++) {
+//     size_t size = std::min<size_t>(
+//         std::max<size_t>(rand() % max_mem_2, 100), max_mem_2);
+//     void* raw = a.Alloc(size);
+//     existing_ptrs.push_back(raw);
+//   }
+//
+//   std::sort(existing_ptrs.begin(), existing_ptrs.end());
+//   // Make sure none of them are equal
+//   for (size_t i = 1; i < existing_ptrs.size(); i++) {
+//     EXPECT_NE(existing_ptrs[i], existing_ptrs[i - 1]);  // No dups
+//
+//     size_t req_size = a.RequestedSize(existing_ptrs[i - 1]);
+//     ASSERT_GT(req_size, 0u);
+//
+//     // Check that they don't overlap.
+//     ASSERT_GE(static_cast<size_t>(
+//                   static_cast<char*>(existing_ptrs[i]) -
+//                   static_cast<char*>(existing_ptrs[i - 1])),
+//               req_size);
+//   }
+//
+//   for (size_t i = 0; i < existing_ptrs.size(); i++) {
+//     a.Free(existing_ptrs[i]);
+//   }
+// }
 
 TEST(BFCArenaTest, TestReserve) {
   // Configure a 1MiB byte limit

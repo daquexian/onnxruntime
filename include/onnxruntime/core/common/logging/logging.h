@@ -211,23 +211,23 @@ class LoggingManager final {
  private:
   ORT_DISALLOW_COPY_ASSIGNMENT_AND_MOVE(LoggingManager);
 
-  Timestamp GetTimestamp() const noexcept;
+  // Timestamp GetTimestamp() const noexcept;
   void CreateDefaultLogger(const std::string& logger_id);
-
-  std::unique_ptr<ISink> sink_;
-  const Severity default_min_severity_;
-  const bool default_filter_user_data_;
-  const int default_max_vlog_level_;
+  //
+  // std::unique_ptr<ISink> sink_;
+  // const Severity default_min_severity_;
+  // const bool default_filter_user_data_;
+  // const int default_max_vlog_level_;
   bool owns_default_logger_;
   static Logger* s_default_logger_;
-
-  struct Epochs {
-    const std::chrono::time_point<std::chrono::high_resolution_clock> high_res;
-    const std::chrono::time_point<std::chrono::system_clock> system;
-    const std::chrono::minutes localtime_offset_from_utc;
-  };
-
-  static const Epochs& GetEpochs() noexcept;
+  //
+  // struct Epochs {
+  //   const std::chrono::time_point<std::chrono::high_resolution_clock> high_res;
+  //   const std::chrono::time_point<std::chrono::system_clock> system;
+  //   const std::chrono::minutes localtime_offset_from_utc;
+  // };
+  //
+  // static const Epochs& GetEpochs() noexcept;
 };
 
 /**
@@ -246,24 +246,29 @@ class Logger {
   */
   Logger(const LoggingManager& loggingManager, std::string id,
          Severity severity, bool filter_user_data, int vlog_level)
-      : logging_manager_{&loggingManager},
-        id_{id},
-        min_severity_{severity},
-        filter_user_data_{filter_user_data},
-        max_vlog_level_{severity > Severity::kVERBOSE ? -1 : vlog_level} {  // disable unless logging VLOG messages
+      // : logging_manager_{&loggingManager},
+      //   id_{id},
+      //   min_severity_{severity},
+      //   filter_user_data_{filter_user_data},
+      //   max_vlog_level_{severity > Severity::kVERBOSE ? -1 : vlog_level} 
+  {  // disable unless logging VLOG messages
   }
 
   /**
      Get the minimum severity level for log messages to be output.
      @returns The severity.
   */
-  Severity GetSeverity() const noexcept { return min_severity_; }
+  Severity GetSeverity() const noexcept { 
+      // return min_severity_; 
+  }
 
   /**
      Change the minimum severity level for log messages to be output.
      @param severity The severity.
   */
-  void SetSeverity(Severity severity) noexcept { min_severity_ = severity; }
+  void SetSeverity(Severity severity) noexcept { 
+      // min_severity_ = severity; 
+  }
 
   /**
      Check if output is enabled for the provided LogSeverity and DataType values.
@@ -272,14 +277,14 @@ class Logger {
      @returns True if a message with these values will be logged.
   */
   bool OutputIsEnabled(Severity severity, DataType data_type) const noexcept {
-    return (severity >= min_severity_ && (data_type != DataType::USER || !filter_user_data_));
+    // return (severity >= min_severity_ && (data_type != DataType::USER || !filter_user_data_));
   }
 
   /**
      Return the maximum VLOG level allowed.
   */
   int VLOGMaxLevel() const noexcept {
-    return max_vlog_level_;
+    // return max_vlog_level_;
   }
 
   /**
@@ -287,7 +292,7 @@ class Logger {
      @param message The log message.
   */
   void Log(const Capture& message) const {
-    logging_manager_->Log(id_, message);
+    // logging_manager_->Log(id_, message);
   }
 
   /**
@@ -295,15 +300,15 @@ class Logger {
     @param Profiling Event Record
   */
   void SendProfileEvent(profiling::EventRecord& eventRecord) const {
-    logging_manager_->SendProfileEvent(eventRecord);
+    // logging_manager_->SendProfileEvent(eventRecord);
   }
 
  private:
-  const LoggingManager* logging_manager_;
-  const std::string id_;
-  Severity min_severity_;
-  const bool filter_user_data_;
-  const int max_vlog_level_;
+  // const LoggingManager* logging_manager_;
+  // const std::string id_;
+  // Severity min_severity_;
+  // const bool filter_user_data_;
+  // const int max_vlog_level_;
 };
 
 inline const Logger& LoggingManager::DefaultLogger() {
@@ -316,21 +321,21 @@ inline const Logger& LoggingManager::DefaultLogger() {
 }
 
 inline void LoggingManager::SetDefaultLoggerSeverity(Severity severity) {
-  if (s_default_logger_ == nullptr) {
-    // fail early for attempted misuse. don't use logging macros as we have no logger.
-    throw std::logic_error("Attempt to use DefaultLogger but none has been registered.");
-  }
-
-  s_default_logger_->SetSeverity(severity);
+  // if (s_default_logger_ == nullptr) {
+  //   // fail early for attempted misuse. don't use logging macros as we have no logger.
+  //   throw std::logic_error("Attempt to use DefaultLogger but none has been registered.");
+  // }
+  //
+  // s_default_logger_->SetSeverity(severity);
 }
 
-inline Timestamp LoggingManager::GetTimestamp() const noexcept {
-  static const Epochs& epochs = GetEpochs();
-
-  const auto high_res_now = std::chrono::high_resolution_clock::now();
-  return std::chrono::time_point_cast<std::chrono::system_clock::duration>(
-      epochs.system + (high_res_now - epochs.high_res) + epochs.localtime_offset_from_utc);
-}
+// inline Timestamp LoggingManager::GetTimestamp() const noexcept {
+//   static const Epochs& epochs = GetEpochs();
+//
+//   const auto high_res_now = std::chrono::high_resolution_clock::now();
+//   return std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+//       epochs.system + (high_res_now - epochs.high_res) + epochs.localtime_offset_from_utc);
+// }
 
 /**
    Return the current thread id.

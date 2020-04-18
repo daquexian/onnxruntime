@@ -34,6 +34,9 @@ class IOnnxRuntimeOpSchemaCollection : public ONNX_NAMESPACE::ISchemaRegistry {
   virtual DomainToVersionMap GetLatestOpsetVersions(bool is_onnx_only) const = 0;
 
   using ISchemaRegistry::GetSchema;
+  ~IOnnxRuntimeOpSchemaCollection() {
+    std::cout << "sdf" << std::endl;
+  }
 
   const ONNX_NAMESPACE::OpSchema* GetSchema(const std::string& key, const int maxInclusiveVersion,
                                             const std::string& domain) const final {

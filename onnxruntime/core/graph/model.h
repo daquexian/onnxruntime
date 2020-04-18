@@ -67,6 +67,9 @@ class Model {
                  const PathString& model_path,
                  const IOnnxRuntimeOpSchemaRegistryList* local_registries,
                  const logging::Logger& logger);
+  virtual ~Model() {
+      std::cout << "mmmm" << std::endl;
+  }
 
   // Get model's IR version.
   // Return <kNoVersion> if not specified.

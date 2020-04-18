@@ -46,3 +46,6 @@ java/gradlew.bat
 java/gradle
 java/.gradle
 
+buildwasm
+compile_commands.json
+.clangd/
