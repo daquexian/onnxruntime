@@ -15,7 +15,7 @@ struct OrtSessionOptions {
   std::vector<OrtCustomOpDomain*> custom_op_domains_;
   std::vector<std::shared_ptr<onnxruntime::IExecutionProviderFactory>> provider_factories;
   OrtSessionOptions() = default;
-  ~OrtSessionOptions();
+  ~OrtSessionOptions() = default;
   OrtSessionOptions(const OrtSessionOptions& other);
   OrtSessionOptions& operator=(const OrtSessionOptions& other);
 };

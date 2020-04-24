@@ -34,10 +34,15 @@ if (onnxruntime_BUILD_CSHARP)
     message(WARNING "Language Csharp is not found in the system")
   endif()
 endif()
+# message(STATUS "hhh")
+# find_package(Threads)
+# message(STATUS "hhh")
 
-# SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -s USE_PTHREADS=1 -s MAXIMUM_MEMORY=2147483648 -s ALLOW_MEMORY_GROWTH=1")
-SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -s USE_PTHREADS=1 -s TOTAL_MEMORY=1073741824 -s MAXIMUM_MEMORY=2147483648")
-SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -s USE_PTHREADS=1 -s TOTAL_MEMORY=1073741824 -s MAXIMUM_MEMORY=2147483648")
+# # SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -s USE_PTHREADS=1 -s MAXIMUM_MEMORY=2147483648 -s ALLOW_MEMORY_GROWTH=1")
+# SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -s USE_PTHREADS=1 -s TOTAL_MEMORY=1073741824 -s MAXIMUM_MEMORY=2147483648")
+# SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -s USE_PTHREADS=1 -s TOTAL_MEMORY=1073741824 -s MAXIMUM_MEMORY=2147483648")
+
+# SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -s DISABLE_EXCEPTION_CATCHING=0")
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 # NOTE: POSITION INDEPENDENT CODE hurts performance, and it only make sense on POSIX systems
@@ -806,7 +811,7 @@ foreach(target_name onnxruntime_common onnxruntime_graph onnxruntime_framework o
     target_compile_definitions(${target_name} PUBLIC -DNSYNC_ATOMIC_CPP11)
     target_include_directories(${target_name} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/external/nsync/public")
   endif()
-  target_include_directories(${target_name} PRIVATE ${CMAKE_CURRENT_BINARY_DIR} ${ONNXRUNTIME_ROOT})
+  target_include_directories(${target_name} PUBLIC ${CMAKE_CURRENT_BINARY_DIR} ${ONNXRUNTIME_ROOT})
 endforeach()
 
 foreach(provider_name ${ONNXRUNTIME_PROVIDER_NAMES})

@@ -6,6 +6,7 @@
 #include <atomic>
 #include <chrono>
 #include <climits>
+#include <iostream>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -235,6 +236,7 @@ class LoggingManager final {
 */
 class Logger {
  public:
+     Logger() = default;
   /**
      Initializes a new instance of the Logger class.
      @param loggingManager The logging manager.
@@ -252,6 +254,7 @@ class Logger {
       //   filter_user_data_{filter_user_data},
       //   max_vlog_level_{severity > Severity::kVERBOSE ? -1 : vlog_level} 
   {  // disable unless logging VLOG messages
+  std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
   }
 
   /**
@@ -259,6 +262,7 @@ class Logger {
      @returns The severity.
   */
   Severity GetSeverity() const noexcept { 
+  std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
       // return min_severity_; 
   }
 
@@ -267,6 +271,7 @@ class Logger {
      @param severity The severity.
   */
   void SetSeverity(Severity severity) noexcept { 
+  std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
       // min_severity_ = severity; 
   }
 
@@ -278,13 +283,19 @@ class Logger {
   */
   bool OutputIsEnabled(Severity severity, DataType data_type) const noexcept {
     // return (severity >= min_severity_ && (data_type != DataType::USER || !filter_user_data_));
+
+
+  std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
+    return false;
   }
 
   /**
      Return the maximum VLOG level allowed.
   */
   int VLOGMaxLevel() const noexcept {
+  std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
     // return max_vlog_level_;
+    return 0;
   }
 
   /**
@@ -292,6 +303,7 @@ class Logger {
      @param message The log message.
   */
   void Log(const Capture& message) const {
+  std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
     // logging_manager_->Log(id_, message);
   }
 
@@ -300,6 +312,7 @@ class Logger {
     @param Profiling Event Record
   */
   void SendProfileEvent(profiling::EventRecord& eventRecord) const {
+  std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
     // logging_manager_->SendProfileEvent(eventRecord);
   }
 
@@ -312,10 +325,14 @@ class Logger {
 };
 
 inline const Logger& LoggingManager::DefaultLogger() {
+  std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
   if (s_default_logger_ == nullptr) {
+  std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
     // fail early for attempted misuse. don't use logging macros as we have no logger.
-    throw std::logic_error("Attempt to use DefaultLogger but none has been registered.");
+    // throw std::logic_error("Attempt to use DefaultLogger but none has been registered.");
+    s_default_logger_ = new Logger();
   }
+  std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
 
   return *s_default_logger_;
 }

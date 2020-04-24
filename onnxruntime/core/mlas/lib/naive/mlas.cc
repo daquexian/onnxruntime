@@ -2,6 +2,148 @@
 
 #include <mlas.h>
 #include <algorithm>
+#include <iostream>
+#include <cmath>
+
+#define UNIMPLEMENTED throw std::runtime_error(__FILE__ + std::string(" ") + std::to_string(__LINE__) + std::string(" unimplemented"))
+
+MLAS_THREADPOOL* threadpool = nullptr;
+
+template <typename T>
+class MatrixGuardBuffer
+{
+public:
+    MatrixGuardBuffer()
+    {
+        _BaseBuffer = nullptr;
+        _BaseBufferSize = 0;
+        _ElementsAllocated = 0;
+    }
+
+    ~MatrixGuardBuffer(void)
+    {
+        ReleaseBuffer();
+    }
+
+    T* GetBuffer(size_t Elements)
+    {
+        //
+        // Check if the internal buffer needs to be reallocated.
+        //
+
+        if (Elements > _ElementsAllocated) {
+
+            std::cout << __LINE__ << std::endl;
+            ReleaseBuffer();
+
+            std::cout << __LINE__ << std::endl;
+            //
+            // Reserve a virtual address range for the allocation plus an unmapped
+            // guard region.
+            //
+
+            constexpr size_t BufferAlignment = 64 * 1024;
+            constexpr size_t GuardPadding = 256 * 1024;
+
+            size_t BytesToAllocate = ((Elements * sizeof(T)) + BufferAlignment - 1) & ~(BufferAlignment - 1);
+
+            _BaseBufferSize = BytesToAllocate + GuardPadding;
+
+#if defined(_WIN32)
+            _BaseBuffer = VirtualAlloc(NULL, _BaseBufferSize, MEM_RESERVE, PAGE_NOACCESS);
+#else
+            std::cout << __LINE__ << std::endl;
+            // _BaseBuffer = mmap(0, _BaseBufferSize, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+            _BaseBuffer = malloc(_BaseBufferSize);
+            std::cout << _BaseBufferSize << std::endl;
+            std::cout << __LINE__ << std::endl;
+#endif
+
+            std::cout << __LINE__ << std::endl;
+            if (_BaseBuffer == nullptr) {
+            std::cout << "bad!" << std::endl;
+                throw std::bad_alloc();
+            }
+            std::cout << __LINE__ << std::endl;
+
+            //
+            // Commit the number of bytes for the allocation leaving the upper
+            // guard region as unmapped.
+            //
+
+#if defined(_WIN32)
+            if (VirtualAlloc(_BaseBuffer, BytesToAllocate, MEM_COMMIT, PAGE_READWRITE) == nullptr) {
+                throw std::bad_alloc();
+            }
+#else
+            std::cout << __LINE__ << std::endl;
+            // if (mprotect(_BaseBuffer, BytesToAllocate, PROT_READ | PROT_WRITE) != 0) {
+                // throw std::bad_alloc();
+            // }
+            std::cout << __LINE__ << std::endl;
+#endif
+
+            std::cout << __LINE__ << std::endl;
+            _ElementsAllocated = BytesToAllocate / sizeof(T);
+            _GuardAddress = (T*)((unsigned char*)_BaseBuffer + BytesToAllocate);
+            std::cout << __LINE__ << std::endl;
+        }
+
+        //
+        //
+        //
+
+        T* GuardAddress = _GuardAddress;
+        T* buffer = GuardAddress - Elements;
+
+        const int MinimumFillValue = -23;
+        const int MaximumFillValue = 23;
+
+        int FillValue = MinimumFillValue;
+        T* FillAddress = buffer;
+
+            std::cout << __LINE__ << std::endl;
+        while (FillAddress < GuardAddress) {
+
+            *FillAddress++ = (T)FillValue;
+
+            FillValue++;
+
+            if (FillValue > MaximumFillValue) {
+                FillValue = MinimumFillValue;
+            }
+        }
+
+            std::cout << __LINE__ << std::endl;
+        return buffer;
+    }
+
+    void ReleaseBuffer(void)
+    {
+        if (_BaseBuffer != nullptr) {
+
+#if defined(_WIN32)
+            VirtualFree(_BaseBuffer, 0, MEM_RELEASE);
+#else
+            std::cout << __LINE__ << std::endl;
+            // munmap(_BaseBuffer, _BaseBufferSize);
+            free(_BaseBuffer);
+            std::cout << __LINE__ << std::endl;
+#endif
+
+            _BaseBuffer = nullptr;
+            _BaseBufferSize = 0;
+        }
+
+        _ElementsAllocated = 0;
+    }
+
+private:
+    size_t _ElementsAllocated;
+    void* _BaseBuffer;
+    size_t _BaseBufferSize;
+    T* _GuardAddress;
+};
 
 size_t
 MLASCALL
@@ -38,7 +180,40 @@ MlasActivation(
     size_t M,
     size_t N,
     size_t ldc
-    ){}
+    ){
+
+    switch (Activation->ActivationKind) {
+        case MlasReluActivation:
+            {
+            int x = 0;
+            for (size_t i = 0; i < M; i++) {
+                for (size_t j = 0; j < N; j++) {
+                    if (Bias != nullptr) {
+                        Buffer[x+j] += Bias[i];
+                    }
+                    Buffer[x+j] = std::max(Buffer[x+j], 0.F);
+                }
+                x += ldc;
+            }
+            break;
+            }
+        case MlasIdentityActivation:
+            {
+            int x = 0;
+            for (size_t i = 0; i < M; i++) {
+                for (size_t j = 0; j < N; j++) {
+                    if (Bias != nullptr) {
+                        Buffer[x+j] += Bias[i];
+                    }
+                }
+                x += ldc;
+            }
+            break;
+            }
+        default:
+            UNIMPLEMENTED;
+    }
+}
 
 //
 // Matrix/matrix multiply routines.
@@ -212,6 +387,7 @@ MlasGemm(
     MLAS_THREADPOOL* ThreadPool
     ){
 
+            UNIMPLEMENTED;
 }
 
 void
@@ -231,12 +407,103 @@ MlasGemm(
     MLAS_THREADPOOL* ThreadPool
     ){
 
+            UNIMPLEMENTED;
 }
 
 //
 // Convolution routines.
 //
 
+    MatrixGuardBuffer<float> BufferIm2Col;
+    void
+    ReferenceConv2D(
+        size_t BatchCount,
+        size_t GroupCount,
+        size_t InputChannels,
+        size_t InputHeight,
+        size_t InputWidth,
+        size_t FilterCount,
+        size_t KernelHeight,
+        size_t KernelWidth,
+        size_t PaddingLeftHeight,
+        size_t PaddingLeftWidth,
+        size_t DilationHeight,
+        size_t DilationWidth,
+        size_t StrideHeight,
+        size_t StrideWidth,
+        size_t OutputHeight,
+        size_t OutputWidth,
+        const float* Input,
+        const float* Filter,
+        const float* Bias,
+        float* Output
+        )
+    {
+        size_t InputSize = InputHeight * InputWidth;
+        size_t OutputSize = OutputHeight * OutputWidth;
+        size_t KernelSize = KernelHeight * KernelWidth;
+
+        size_t K = InputChannels * KernelSize;
+        size_t Im2ColElements = OutputSize * K;
+
+        for (size_t b = 0; b < BatchCount; b++) {
+
+            const float* filter = Filter;
+            const float* bias = Bias;
+
+            for (size_t g = 0; g < GroupCount; g++) {
+
+                //
+                // Transform the image using IM2COL and invoke the GEMM.
+                //
+
+                float* Im2Col = BufferIm2Col.GetBuffer(Im2ColElements);
+                float* Im2ColOut = Im2Col;
+
+                for (size_t c = 0; c < InputChannels; c++) {
+
+                    for (size_t ky = 0; ky < KernelHeight; ky++) {
+
+                        for (size_t kx = 0; kx < KernelWidth; kx++) {
+
+                            for (size_t oh = 0; oh < OutputHeight; oh++) {
+
+                                size_t ih = oh * StrideHeight + ky * DilationHeight - PaddingLeftHeight;
+
+                                for (size_t ow = 0; ow < OutputWidth; ow++) {
+
+                                    size_t iw = ow * StrideWidth + kx * DilationWidth - PaddingLeftWidth;
+
+                                    *Im2ColOut++ = (ih < InputHeight && iw < InputWidth) ?
+                                        Input[ih * InputWidth + iw] : 0;
+                                }
+                            }
+                        }
+                    }
+
+                    Input += InputSize;
+                }
+
+                MlasGemm(CblasNoTrans, CblasNoTrans, FilterCount, OutputSize, K, 1.0f,
+                    filter, K, Im2Col, OutputSize, 0.0f, Output, OutputSize, threadpool);
+
+                //
+                // Apply the bias.
+                //
+
+                for (size_t f = 0; f < FilterCount; f++) {
+
+                    float biasValue = *bias++;
+
+                    for (size_t o = 0; o < OutputSize; o++) {
+                        *Output++ += biasValue;
+                    }
+                }
+
+                filter += FilterCount * InputChannels * KernelSize;
+            }
+        }
+    }
 void
 MLASCALL
 MlasConvPrepare(
@@ -269,7 +536,9 @@ MlasConv(
     float* WorkingBuffer,
     float* Output,
     MLAS_THREADPOOL* ThreadPool
-    ){}
+    ){
+            UNIMPLEMENTED;
+}
 
 //
 // Pooling routines.
@@ -423,7 +692,17 @@ MlasPool(
     float* Output,
     MLAS_THREADPOOL* ThreadPool
     ){
+    if (Dimensions != 2) {
+        throw std::runtime_error("unimplemented");
+    }
     if (PoolingKind == MlasMaximumPooling) {
+        ReferenceMaximumPool2D(InputShape, KernelShape, Padding, StrideShape, Input, Output);
+    } else if (PoolingKind == MlasAveragePoolingExcludePad) {
+        ReferenceAveragePool2D(InputShape, KernelShape, Padding, StrideShape, Input, Output, false);
+    } else if (PoolingKind == MlasAveragePoolingIncludePad) {
+        ReferenceAveragePool2D(InputShape, KernelShape, Padding, StrideShape, Input, Output, true);
+    } else {
+        throw std::runtime_error("unimplemented");
     }
 }
 
@@ -437,7 +716,11 @@ MlasComputeLogistic(
     const float* Input,
     float* Output,
     size_t N
-    ){}
+    ){
+    for (size_t i = 0; i < N; i++){
+        Output[i] = 1 / (1 + std::exp(-Input[i]));
+    }
+}
 
 void
 MLASCALL
@@ -445,7 +728,11 @@ MlasComputeTanh(
     const float* Input,
     float* Output,
     size_t N
-    ){}
+    ){
+    for (size_t i = 0; i < N; i++){
+        Output[i] = std::tanh(Input[i]);
+    }
+}
 
 void
 MLASCALL
@@ -453,7 +740,11 @@ MlasComputeErf(
     const float* Input,
     float* Output,
     size_t N
-    ){}
+    ){
+    for (size_t i = 0; i < N; i++){
+        Output[i] = std::erf(Input[i]);
+    }
+}
 
 //
 // Half-precision floating-point routines.
@@ -466,7 +757,10 @@ MlasConvertHalfToFloatBuffer(
     const unsigned short* Source,
     float* Destination,
     size_t Count
-    ){}
+    ){
+
+            UNIMPLEMENTED;
+}
 
 //
 // Buffer reordering routines.
@@ -478,7 +772,10 @@ MlasReorderInput(
     const int64_t* InputShape,
     const float* S,
     float* D
-    ){}
+    ){
+
+            UNIMPLEMENTED;
+}
 
 void
 MLASCALL
@@ -486,7 +783,10 @@ MlasReorderOutputNchw(
     const int64_t* OutputShape,
     const float* S,
     float* D
-    ){}
+    ){
+
+            UNIMPLEMENTED;
+}
 
 void
 MLASCALL
@@ -494,7 +794,10 @@ MlasReorderOutputNhwc(
     const int64_t* OutputShape,
     const float* S,
     float* D
-    ){}
+    ){
+
+            UNIMPLEMENTED;
+}
 
 void
 MLASCALL
@@ -502,7 +805,10 @@ MlasReorderFilterOIHWBiBo(
     const int64_t* FilterShape,
     const float* S,
     float* D
-    ){}
+    ){
+
+            UNIMPLEMENTED;
+}
 
 void
 MLASCALL
@@ -510,7 +816,10 @@ MlasReorderFilterOIHWBo(
     const int64_t* FilterShape,
     const float* S,
     float* D
-    ){}
+    ){
+
+            UNIMPLEMENTED;
+}
 
 //
 // Single precision NCHWc routines.
@@ -521,12 +830,13 @@ MLASCALL
 MlasNchwcGetBlockSize(
     void
     ){
-    return 1;
+            UNIMPLEMENTED;
 }
 
 void
 MLASCALL
 MlasNchwcConv(
+    size_t Dimensions,
     const int64_t* InputShape,
     const int64_t* KernelShape,
     const int64_t* DilationShape,
@@ -541,12 +851,16 @@ MlasNchwcConv(
     const MLAS_ACTIVATION* Activation,
     bool ZeroMode,
     MLAS_THREADPOOL* ThreadPool
-    ){}
+    ) {
+
+            UNIMPLEMENTED;
+}
 
 void
 MLASCALL
 MlasNchwcPool(
     MLAS_POOLING_KIND PoolingKind,
+    size_t Dimensions,
     const int64_t* InputShape,
     const int64_t* KernelShape,
     const int64_t* DilationShape,
@@ -556,7 +870,10 @@ MlasNchwcPool(
     const float* Input,
     float* Output,
     MLAS_THREADPOOL* ThreadPool
-    ){}
+    ) {
+
+            UNIMPLEMENTED;
+}
 
 void
 MLASCALL
@@ -565,7 +882,10 @@ MlasNchwcUpsample(
     const int64_t* Scales,
     const float* Input,
     float* Output
-    ){}
+    ){
+
+            UNIMPLEMENTED;
+}
 
 //
 // Linear quantization routines.
@@ -580,7 +900,10 @@ MlasQuantizeLinear(
     size_t N,
     float Scale,
     OutputType ZeroPoint
-    ){}
+    ){
+
+            UNIMPLEMENTED;
+}
 
 void
 MLASCALL
@@ -592,27 +915,33 @@ MlasRequantizeOutput(
     size_t N,
     float Scale,
     uint8_t ZeroPoint
-    ){}
+    ){
 
-template
+            UNIMPLEMENTED;
+}
+
 void
 MLASCALL
-MlasQuantizeLinear<int8_t>(
-    const float* Input,
-    int8_t* Output,
-    size_t N,
-    float Scale,
-    int8_t ZeroPoint
-    );
-
-template
-void
-MLASCALL
-MlasQuantizeLinear<uint8_t>(
+MlasQuantizeLinear(
     const float* Input,
     uint8_t* Output,
     size_t N,
     float Scale,
     uint8_t ZeroPoint
-    );
+    ) {
 
+            UNIMPLEMENTED;
+}
+
+void
+MLASCALL
+MlasQuantizeLinear(
+    const float* Input,
+    int8_t* Output,
+    size_t N,
+    float Scale,
+    int8_t ZeroPoint
+    ) {
+
+            UNIMPLEMENTED;
+}

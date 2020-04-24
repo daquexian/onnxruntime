@@ -641,50 +641,76 @@ void OpTester::Run(
     std::vector<std::unique_ptr<IExecutionProvider>>* execution_providers,
     const CustomOutputVerifierFn& custom_output_verifier) {
   std::string cur_provider = "not set";
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
   try {
 #ifndef NDEBUG
     run_called_ = true;
 #endif
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
     fetches_.clear();
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
     bool cache_enabled = cached_model_ != nullptr;
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
     auto p_model = !cache_enabled ? BuildGraph() : cached_model_;
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
     auto& graph = p_model->MainGraph();
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
 
     Status status = Status::OK();
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
     if (!cache_enabled) {
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
       if (add_shape_to_tensor_data_ &&
           expect_result == ExpectResult::kExpectFailure) {
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
         // capture possible exceptions from shape inference for invalid testcase
         try {
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
           status = graph.Resolve();
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
         } catch (const std::exception& ex) {
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
           status = ORT_MAKE_STATUS(ONNXRUNTIME, FAIL, ex.what());
         }
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
       } else {
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
         status = graph.Resolve();
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
       }
 
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
       if (!status.IsOK()) {
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
         if (expect_result == ExpectResult::kExpectFailure) {
           EXPECT_TRUE(!status.IsOK());
           EXPECT_THAT(status.ErrorMessage(),
                       testing::HasSubstr(expected_failure_string));
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
         } else {
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
           LOGS_DEFAULT(ERROR) << "Resolve failed with status: "
                               << status.ErrorMessage();
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
           EXPECT_TRUE(status.IsOK()) << status.ErrorMessage();
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
         }
       }
 
       if (!status.IsOK()) {
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
         return;
       }
     }
 
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
     // Hookup the inputs and outputs
     std::unordered_map<std::string, OrtValue> feeds;
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
     std::vector<std::string> output_names;
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
     FillFeedsAndOutputNames(feeds, output_names);
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
     // Run the model
     static const std::string all_provider_types[] = {
         kCpuExecutionProvider, kCudaExecutionProvider,
@@ -694,7 +720,9 @@ void OpTester::Run(
         kAclExecutionProvider,
     };
 
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
     bool has_run = false;
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
 
     if (execution_providers) {
       for (auto& entry : *execution_providers) {
@@ -704,6 +732,7 @@ void OpTester::Run(
           break;
         }
       }
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
 
       InferenceSession session_object{so};
 
@@ -723,6 +752,7 @@ void OpTester::Run(
           custom_output_verifier);
 
     } else {
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
       for (const std::string& provider_type : all_provider_types) {
         if (excluded_provider_types.count(provider_type) > 0)
           continue;
@@ -733,11 +763,14 @@ void OpTester::Run(
           so.enable_mem_pattern = false;
           so.execution_mode = ExecutionMode::ORT_SEQUENTIAL;
         }
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
         InferenceSession session_object{so};
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
 
         for (auto& custom_session_registry : custom_session_registries_)
           session_object.RegisterCustomRegistry(custom_session_registry);
 
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
         std::unique_ptr<IExecutionProvider> execution_provider;
         if (provider_type == onnxruntime::kCpuExecutionProvider)
           execution_provider = DefaultCpuExecutionProvider();
@@ -761,13 +794,16 @@ void OpTester::Run(
         if (execution_provider == nullptr)
           continue;
 
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
         bool valid = true;
 
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
         // set execution provider for all nodes in the graph
         for (auto& node : graph.Nodes()) {
           if (node.OpType() == kConstant)
             continue;
 
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
           // if node is not registered for the provider, skip
           node.SetExecutionProviderType(provider_type);
           if (provider_type == onnxruntime::kNGraphExecutionProvider ||
@@ -775,6 +811,7 @@ void OpTester::Run(
               provider_type == onnxruntime::kOpenVINOExecutionProvider ||
               provider_type == onnxruntime::kNupharExecutionProvider)
             continue;
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
           auto reg = execution_provider->GetKernelRegistry();
           const KernelCreateInfo* kci =
               reg->TryFindKernel(node, execution_provider->Type());
@@ -796,8 +833,10 @@ void OpTester::Run(
         if (!valid)
           continue;
 
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
         has_run = true;
 
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
         EXPECT_TRUE(
             session_object
                 .RegisterExecutionProvider(std::move(execution_provider))
@@ -813,6 +852,7 @@ void OpTester::Run(
 
       EXPECT_TRUE(has_run)
           << "No registered execution providers were able to run the model.";
+    std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
     }
   } catch (const std::exception& ex) {
     std::cerr << ex.what() << "\nProvider:" << cur_provider << "\n";

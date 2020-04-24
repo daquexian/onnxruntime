@@ -35,7 +35,7 @@ class IOnnxRuntimeOpSchemaCollection : public ONNX_NAMESPACE::ISchemaRegistry {
 
   using ISchemaRegistry::GetSchema;
   ~IOnnxRuntimeOpSchemaCollection() {
-    std::cout << "sdf" << std::endl;
+    std::cout << __FILE__ << " " << __LINE__ << "sdf" << std::endl;
   }
 
   const ONNX_NAMESPACE::OpSchema* GetSchema(const std::string& key, const int maxInclusiveVersion,

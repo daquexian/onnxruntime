@@ -81,7 +81,16 @@ void Gemm<float, ThreadPool>(const CBLAS_TRANSPOSE TransA, const CBLAS_TRANSPOSE
                              float* C, ThreadPool* threadpool) {
   int lda = static_cast<int>((TransA == CblasNoTrans) ? K : M);
   int ldb = static_cast<int>((TransB == CblasNoTrans) ? N : K);
+
+  float sum = 0.f;
+  for (int i = 0; i < 27; i++) {
+      std::cout << "A[" << i << "] = " << A[i] << std::endl;
+      std::cout << "B[" << i << "] = " << B[i * ldb] << std::endl;
+      sum += A[i] * B[i * ldb];
+  }
   MlasGemm(TransA, TransB, M, N, K, alpha, A, lda, B, ldb, beta, C, N, threadpool);
+  std::cout << "C[" << 0 << "] = " << C[0] << std::endl;
+  std::cout << "sum = " << sum << std::endl;
 }
 
 template <>

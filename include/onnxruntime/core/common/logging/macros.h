@@ -47,6 +47,7 @@
 
 // iostream style logging. Capture log info in Message, and push to the logger in ~Message.
 #define LOGS_CATEGORY(logger, severity, category)                       \
+  std::cout << __FILE__ << " " <<  __LINE__ << " mmm" << std::endl; \
   if ((logger).OutputIsEnabled(::onnxruntime::logging::Severity::k##severity, ::onnxruntime::logging::DataType::SYSTEM)) \
     CREATE_MESSAGE(logger, severity, category, ::onnxruntime::logging::DataType::SYSTEM).Stream()
 

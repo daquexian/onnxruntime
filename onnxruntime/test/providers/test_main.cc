@@ -41,10 +41,17 @@ std::unique_ptr<Ort::Env> ort_env;
 
 int main(int argc, char** argv) {
   int status = 0;
+  std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
   try {
+  std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
     ::testing::InitGoogleTest(&argc, argv);
+  std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
     ort_env.reset(new Ort::Env(ORT_LOGGING_LEVEL_WARNING, "Default"));
+  std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
+          LOGS_DEFAULT(INFO) << "hhhh";
+  std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
     status = RUN_ALL_TESTS();
+  std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
   } catch (const std::exception& ex) {
     std::cerr << ex.what();
     status = -1;

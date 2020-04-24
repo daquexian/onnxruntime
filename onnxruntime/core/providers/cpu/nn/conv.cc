@@ -207,7 +207,8 @@ Status Conv<float>::Compute(OpKernelContext* context) const {
   const size_t kernel_rank = kernel_shape.size();
   concurrency::ThreadPool* thread_pool = context->GetOperatorThreadPool();
 
-  if (kernel_rank == 2 || kernel_rank == 3) {
+  bool conv = false;
+  if (conv) {
     MLAS_CONV_PARAMETERS Parameters;
     size_t WorkingBufferSize;
     MlasConvPrepare(&Parameters,
@@ -256,6 +257,11 @@ Status Conv<float>::Compute(OpKernelContext* context) const {
     col_buffer_shape.insert(col_buffer_shape.end(), output_shape.GetDims().begin(),
                             output_shape.GetDims().end());
 
+    std::cout << "pads: ";
+    for (int i = 0; i < pads.size(); i++) {
+        std::cout << pads[i] << ", ";
+    }
+    std::cout << std::endl;
     for (int image_id = 0; image_id < N; ++image_id) {
       for (int group_id = 0; group_id < conv_attrs_.group; ++group_id) {
         math::Im2colNd<float, StorageOrder::NCHW>()(
@@ -271,6 +277,8 @@ Status Conv<float>::Compute(OpKernelContext* context) const {
             static_cast<int>(kernel_shape.size()),
             col_buffer_data);
 
+        std::cout << "pad end" << std::endl;
+
         math::Gemm<float>(
             CblasNoTrans,
             CblasNoTrans,
@@ -285,7 +293,17 @@ Status Conv<float>::Compute(OpKernelContext* context) const {
             thread_pool);
       }
 
+    // std::cout << "before act, Y: ";
+    // for (int i = 0; i < 10; i++) {
+    //     std::cout << Ydata[i] << ", ";
+    // }
+    // std::cout << std::endl;
       MlasActivation(&activation_, Ydata, Bdata, M, output_image_size, output_image_size);
+    // std::cout << "Y: ";
+    // for (int i = 0; i < 10; i++) {
+    //     std::cout << Ydata[i] << ", ";
+    // }
+    // std::cout << std::endl;
 
       Xdata += X_offset * conv_attrs_.group;
       Ydata += Y_offset * conv_attrs_.group;

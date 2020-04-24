@@ -351,6 +351,7 @@ target_include_directories(onnxruntime_test_utils PUBLIC "${TEST_SRC_DIR}/util/i
 set_target_properties(onnxruntime_test_utils PROPERTIES FOLDER "ONNXRuntimeTest")
 
 set(all_tests ${onnxruntime_test_common_src} ${onnxruntime_test_ir_src} ${onnxruntime_test_optimizer_src} ${onnxruntime_test_framework_src} ${onnxruntime_test_providers_src})
+# set(all_tests ${onnxruntime_test_framework_src} ${onnxruntime_test_common_src} ${onnxruntime_test_providers_src})
 if(NOT TARGET onnxruntime)
   list(APPEND all_tests ${onnxruntime_shared_lib_test_SRC})
 endif()
@@ -383,6 +384,8 @@ set(all_dependencies ${onnxruntime_test_providers_dependencies} )
     LIBS ${onnxruntime_test_providers_libs} ${onnxruntime_test_common_libs}
     DEPENDS ${all_dependencies}
   )
+
+  set_target_properties(onnxruntime_test_all PROPERTIES LINK_FLAGS "-s ALLOW_MEMORY_GROWTH=1 -s DISABLE_EXCEPTION_CATCHING=0")
 
   # the default logger tests conflict with the need to have an overall default logger
   # so skip in this type of
@@ -534,7 +537,8 @@ if (onnxruntime_ENABLE_LANGUAGE_INTEROP_OPS)
   list(APPEND onnx_test_libs onnxruntime_language_interop onnxruntime_pyop)
 endif()
 
-add_executable(onnx_test_runner ${onnx_test_runner_src_dir}/main.cc)
+# add_executable(onnx_test_runner ${onnx_test_runner_src_dir}/main.cc)
+add_executable(onnx_test_runner ${REPO_ROOT}/test.cpp)
 if(MSVC)
   target_compile_options(onnx_test_runner PRIVATE "$<$<COMPILE_LANGUAGE:CUDA>:SHELL:--compiler-options /utf-8>" "$<$<NOT:$<COMPILE_LANGUAGE:CUDA>>:/utf-8>")
 endif()

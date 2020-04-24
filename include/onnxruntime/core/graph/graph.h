@@ -41,7 +41,7 @@ class Node {
 
   // ~Node() = default;
   ~Node() {
-    std::cout << "aa" << std::endl;
+    std::cout << __FILE__ << " " << __LINE__ << " aa" << std::endl;
   }
 
   /**

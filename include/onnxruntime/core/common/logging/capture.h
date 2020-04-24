@@ -5,6 +5,7 @@
 
 #include <cstdarg>
 #include <gsl/gsl>
+#include <iostream>
 #include "core/common/common.h"
 #include "core/common/code_location.h"
 #include "core/common/logging/severity.h"
@@ -31,6 +32,7 @@ class Capture {
   Capture(const Logger& logger, logging::Severity severity, const char* category,
           logging::DataType dataType, const CodeLocation& location)
       : logger_{&logger}, severity_{severity}, category_{category}, data_type_{dataType}, location_{location} {
+  std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
   }
 
   /**
@@ -38,6 +40,7 @@ class Capture {
      @returns Output stream.
   */
   std::ostream& Stream() noexcept {
+  std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
     return stream_;
   }
 
@@ -72,10 +75,12 @@ class Capture {
   void ProcessPrintf(msvc_printf_check const char* format, va_list args);
 
   logging::Severity Severity() const noexcept {
+  std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
     return severity_;
   }
 
   char SeverityPrefix() const noexcept {
+  std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
     // Carefully setup so severity_ is a valid index
     GSL_SUPPRESS(bounds .2) {
       return logging::SEVERITY_PREFIX[static_cast<int>(severity_)];
@@ -83,18 +88,22 @@ class Capture {
   }
 
   const char* Category() const noexcept {
+  std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
     return category_;
   }
 
   logging::DataType DataType() const noexcept {
+  std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
     return data_type_;
   }
 
   const CodeLocation& Location() const noexcept {
+  std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
     return location_;
   }
 
   std::string Message() const noexcept {
+  std::cout << __FILE__ << " " <<  __LINE__ << std::endl;
     return stream_.str();
   }
 
