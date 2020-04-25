@@ -39,10 +39,10 @@ class Node {
     Fused = 1,      ///< The node refers to a function.
   };
 
-  // ~Node() = default;
-  ~Node() {
-    std::cout << __FILE__ << " " << __LINE__ << " aa" << std::endl;
-  }
+  ~Node() = default;
+  // ~Node() {
+  //   // std::cout << __FILE__ << " " << __LINE__ << " aa" << std::endl;
+  // }
 
   /**
   @class EdgeEnd

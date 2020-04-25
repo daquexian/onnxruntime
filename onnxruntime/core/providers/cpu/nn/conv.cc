@@ -257,11 +257,11 @@ Status Conv<float>::Compute(OpKernelContext* context) const {
     col_buffer_shape.insert(col_buffer_shape.end(), output_shape.GetDims().begin(),
                             output_shape.GetDims().end());
 
-    std::cout << "pads: ";
-    for (int i = 0; i < pads.size(); i++) {
-        std::cout << pads[i] << ", ";
-    }
-    std::cout << std::endl;
+    // std::cout << "pads: ";
+    // for (int i = 0; i < pads.size(); i++) {
+    //     std::cout << pads[i] << ", ";
+    // }
+    // std::cout << std::endl;
     for (int image_id = 0; image_id < N; ++image_id) {
       for (int group_id = 0; group_id < conv_attrs_.group; ++group_id) {
         math::Im2colNd<float, StorageOrder::NCHW>()(
@@ -277,7 +277,7 @@ Status Conv<float>::Compute(OpKernelContext* context) const {
             static_cast<int>(kernel_shape.size()),
             col_buffer_data);
 
-        std::cout << "pad end" << std::endl;
+        // std::cout << "pad end" << std::endl;
 
         math::Gemm<float>(
             CblasNoTrans,

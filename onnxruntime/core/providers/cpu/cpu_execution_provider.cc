@@ -1280,11 +1280,11 @@ Status RegisterOnnxMLOperatorKernels(KernelRegistry& kernel_registry) {
 }  // namespace ml
 
 static Status RegisterCPUKernels(KernelRegistry& kernel_registry) {
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
+  // std::cout << __FILE__ << " " << __LINE__ << std::endl;
   ORT_RETURN_IF_ERROR(RegisterOnnxOperatorKernels(kernel_registry));
-  std::cout << "registered!" << std::endl;
+  // std::cout << "registered!" << std::endl;
   ORT_RETURN_IF_ERROR(::onnxruntime::ml::RegisterOnnxMLOperatorKernels(kernel_registry));
-  std::cout << "registered!" << std::endl;
+  // std::cout << "registered!" << std::endl;
 #ifndef DISABLE_CONTRIB_OPS
   ORT_RETURN_IF_ERROR(::onnxruntime::contrib::RegisterCpuContribKernels(kernel_registry));
 #endif
@@ -1301,9 +1301,9 @@ struct KernelRegistryAndStatus {
 
 KernelRegistryAndStatus GetCpuKernelRegistry() {
   KernelRegistryAndStatus ret;
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
+  // std::cout << __FILE__ << " " << __LINE__ << std::endl;
   ret.st = RegisterCPUKernels(*ret.kernel_registry);
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
+  // std::cout << __FILE__ << " " << __LINE__ << std::endl;
   return ret;
 }
 

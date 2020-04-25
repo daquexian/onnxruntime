@@ -176,6 +176,55 @@ ExecutionFrame::ExecutionFrame(const std::vector<int>& feed_mlvalue_idxs, const 
       session_state_(session_state),
       mem_patterns_(nullptr),
       planner_(nullptr) {
+  // map the custom allocators to ort_value_idx entries
+  if (!fetch_allocators.empty()) {
+    for (size_t idx = 0, end = fetch_mlvalue_idxs.size(); idx < end; ++idx) {
+      int ort_value_idx = fetch_mlvalue_idxs[idx];
+
+      auto custom_alloc_entry = fetch_allocators.find(idx);
+      if (custom_alloc_entry != fetch_allocators.cend()) {
+        custom_allocators_[ort_value_idx] = custom_alloc_entry->second;
+      }
+    }
+  }
+
+  // If the session enable memory pattern optimization
+  // and we have execution plan generated, try to setup
+  // memory pattern optimization.
+  if (session_state.GetEnableMemoryPattern() && session_state.GetExecutionPlan()) {
+    std::vector<std::reference_wrapper<const TensorShape>> input_shapes;
+    bool all_tensors = true;
+    // Reserve mem to avoid re-allocation.
+    input_shapes.reserve(feeds.size());
+    for (const auto& feed : feeds) {
+      if (!(feed.IsTensor())) {
+        all_tensors = false;
+        break;
+      }
+      auto& tensor = feed.Get<Tensor>();
+      input_shapes.push_back(std::cref(tensor.Shape()));
+    }
+
+    //if there are some traditional ml value type in inputs disable the memory pattern optimization.
+    if (all_tensors) {
+      mem_patterns_ = session_state.GetMemoryPatternGroup(input_shapes);
+      // if no existing patterns, generate one in this executionframe
+      if (!mem_patterns_) {
+        planner_ = onnxruntime::make_unique<OrtValuePatternPlanner>(*session_state.GetExecutionPlan());
+      } else {
+        // pre-allocate the big chunk requested in memory pattern.
+        // all the internal kernel's input/output tensors will be allocated on these buffer.
+        for (size_t i = 0; i < mem_patterns_->locations.size(); i++) {
+          ORT_ENFORCE(buffers_.find(mem_patterns_->locations[i]) == buffers_.end());
+          AllocatorPtr alloc = GetAllocator(mem_patterns_->locations[i]);
+          void* buffer = mem_patterns_->patterns[i].PeakSize() > 0
+                             ? alloc->Alloc(mem_patterns_->patterns[i].PeakSize())
+                             : nullptr;
+          buffers_[mem_patterns_->locations[i]] = BufferUniquePtr(buffer, alloc);
+        }
+      }
+    }
+  }
 }
 
 ExecutionFrame::~ExecutionFrame() = default;

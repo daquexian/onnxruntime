@@ -204,6 +204,10 @@ MlasActivation(
                 for (size_t j = 0; j < N; j++) {
                     if (Bias != nullptr) {
                         Buffer[x+j] += Bias[i];
+                        if (std::isnan(Buffer[x+j])) {
+                            std::cout << ("Buffer[x+j] nan " + std::to_string(i) + " " + std::to_string(j)) << std::endl;
+                            throw std::runtime_error("Buffer[x+j] nan " + std::to_string(i) + " " + std::to_string(j));
+                        }
                     }
                 }
                 x += ldc;
@@ -236,6 +240,10 @@ void ReferenceGemm(
     size_t ldc
     ) {
 
+    if (beta != 0 || alpha != 1) {
+        UNIMPLEMENTED;
+    }
+
 if (TransA == CblasNoTrans) {
 
             if (TransB == CblasNoTrans) {
@@ -250,12 +258,34 @@ if (TransA == CblasNoTrans) {
                         T sum = 0.0f;
 
                         for (size_t k = 0; k < K; k++) {
+                            // if (m == 0 || n == 98) {
+                            //     std::cout << "b: " << *b << ", a: " << *a << std::endl;
+                            //     std::cout << "sum before adding: " << sum << std::endl;
+                            // }
                             sum += (*b * *a);
+                            // if (m == 0 || n == 98) {
+                            //     std::cout << "sum after adding: " << sum << std::endl;
+                            // }
                             b += ldb;
                             a += 1;
                         }
 
-                        *c = (*c * beta) + (sum * alpha);
+                            // if (m == 0 || n == 98) {
+                            //     std::cout << "sum: " << sum << std::endl;
+                            // }
+                        if (std::isnan(sum)) {
+                            std::cout << ("sum nan " + std::to_string(m) + " " + std::to_string(n)) << std::endl;
+                            throw std::runtime_error("sum nan " + std::to_string(m) + " " + std::to_string(n));
+                        }
+
+                        // *c = (*c * beta) + (sum * alpha);
+                        *c = sum;
+
+                        if (std::isnan(*c)) {
+                            std::cout << ("c nan " + std::to_string(m) + " " + std::to_string(n)) << std::endl;
+                            throw std::runtime_error("c nan " + std::to_string(m) + " " + std::to_string(n));
+                        }
+
                     }
                 }
 
@@ -559,16 +589,16 @@ MlasConv(
         int64_t InputHeight = InputShape[2];
         int64_t InputWidth = InputShape[3];
 
-        int64_t KernelHeight = KernelShape[0];
-        int64_t KernelWidth = KernelShape[1];
+        int64_t KernelHeight = KernelShape ? KernelShape[0] : InputHeight;
+        int64_t KernelWidth = KernelShape ? KernelShape[1] : InputWidth;
 
-        int64_t PaddingLeftY = Padding[0];
-        int64_t PaddingLeftX = Padding[1];
-        int64_t PaddingRightY = Padding[2];
-        int64_t PaddingRightX = Padding[3];
+        int64_t PaddingLeftY = Padding ? Padding[0] : 0;
+        int64_t PaddingLeftX = Padding ? Padding[1] : 0;
+        int64_t PaddingRightY = Padding ? Padding[2] : 0;
+        int64_t PaddingRightX = Padding ? Padding[3] : 0;
 
-        int64_t StrideHeight = StrideShape[0];
-        int64_t StrideWidth = StrideShape[1];
+        int64_t StrideHeight = StrideShape ? StrideShape[0] : 1;
+        int64_t StrideWidth = StrideShape ? StrideShape[1] : 1;
 
         int64_t OutputHeight = (InputHeight + PaddingLeftY + PaddingRightY - KernelHeight) / StrideHeight + 1;
         int64_t OutputWidth = (InputWidth + PaddingLeftX + PaddingRightX - KernelWidth) / StrideWidth + 1;
@@ -624,16 +654,16 @@ MlasConv(
         int64_t InputHeight = InputShape[2];
         int64_t InputWidth = InputShape[3];
 
-        int64_t KernelHeight = KernelShape[0];
-        int64_t KernelWidth = KernelShape[1];
+        int64_t KernelHeight = KernelShape ? KernelShape[0] : InputHeight;
+        int64_t KernelWidth = KernelShape ? KernelShape[1] : InputWidth;
 
-        int64_t PaddingLeftY = Padding[0];
-        int64_t PaddingLeftX = Padding[1];
-        int64_t PaddingRightY = Padding[2];
-        int64_t PaddingRightX = Padding[3];
+        int64_t PaddingLeftY = Padding ? Padding[0] : 0;
+        int64_t PaddingLeftX = Padding ? Padding[1] : 0;
+        int64_t PaddingRightY = Padding ? Padding[2] : 0;
+        int64_t PaddingRightX = Padding ? Padding[3] : 0;
 
-        int64_t StrideHeight = StrideShape[0];
-        int64_t StrideWidth = StrideShape[1];
+        int64_t StrideHeight = StrideShape ? StrideShape[0] : 1;
+        int64_t StrideWidth = StrideShape ? StrideShape[1] : 1;
 
         int64_t OutputHeight = (InputHeight + PaddingLeftY + PaddingRightY - KernelHeight) / StrideHeight + 1;
         int64_t OutputWidth = (InputWidth + PaddingLeftX + PaddingRightX - KernelWidth) / StrideWidth + 1;

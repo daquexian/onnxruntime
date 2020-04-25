@@ -801,6 +801,26 @@ common::Status InferenceSession::Initialize() {
       LOGS(*session_logger_, INFO) << "Session has already been initialized.";
       return common::Status::OK();
     }
+#ifdef ONNXRUNTIME_ENABLE_INSTRUMENT
+    TraceLoggingWriteStart(session_activity, "OrtInferenceSessionActivity");
+    session_activity_started_ = true;
+#endif
+    // Register default CPUExecutionProvider if user didn't provide it through the Register() calls
+    if (!execution_providers_.Get(onnxruntime::kCpuExecutionProvider)) {
+      LOGS(*session_logger_, INFO) << "Adding default CPU execution provider.";
+      CPUExecutionProviderInfo epi{session_options_.enable_cpu_mem_arena};
+      auto p_cpu_exec_provider = onnxruntime::make_unique<CPUExecutionProvider>(epi);
+      ORT_RETURN_IF_ERROR_SESSIONID_(RegisterExecutionProvider(std::move(p_cpu_exec_provider)));
+    }
+
+    if (session_options_.execution_mode == ExecutionMode::ORT_PARALLEL &&
+        execution_providers_.Get(onnxruntime::kCudaExecutionProvider)) {
+      LOGS(*session_logger_, ERROR) << "Parallel execution is currently not supported "
+                                       "for the registered CUDA Execution Provider.";
+      return common::Status(common::ONNXRUNTIME, common::INVALID_ARGUMENT,
+                            "Parallel execution is currently not supported "
+                            "for the registered CUDA Execution Provider.");
+    }
 
     // add predefined transformers
     AddPredefinedTransformers(*graph_transformation_mgr_, session_options_.graph_optimization_level,
@@ -824,8 +844,26 @@ common::Status InferenceSession::Initialize() {
     // create SessionState for subgraphs as it's needed by the transformers
     ORT_RETURN_IF_ERROR_SESSIONID_(CreateSubgraphSessionState(graph, *session_state_));
 
+    // apply any transformations to the main graph and any subgraphs
+    ORT_RETURN_IF_ERROR_SESSIONID_(TransformGraph(graph, *graph_transformation_mgr_,
+                                                  execution_providers_, kernel_registry_manager_,
+                                                  insert_cast_transformer_,
+                                                  *session_state_));
+
     // now that all the transforms are done, call Resolve on the main graph. this will recurse into the subgraphs.
     ORT_RETURN_IF_ERROR_SESSIONID_(graph.Resolve());
+
+    if (!session_options_.optimized_model_filepath.empty()) {
+      // Serialize optimized ONNX model.
+      ORT_RETURN_IF_ERROR_SESSIONID_(Model::Save(*model_, session_options_.optimized_model_filepath));
+      if (session_options_.graph_optimization_level >= TransformerLevel::Level3) {
+        LOGS(*session_logger_, WARNING) << "Serializing Optimized ONNX model with Graph Optimization"
+                                           " level greater than ORT_ENABLE_EXTENDED. The generated"
+                                           " model may contain hardware and execution provider specific"
+                                           " optimizations, and should only be used in the same environment"
+                                           " the model was optimized for.";
+      }
+    }
 
     ORT_RETURN_IF_ERROR_SESSIONID_(session_initializer.CreatePlan(nullptr, nullptr, session_options_.execution_mode));
 
@@ -851,6 +889,9 @@ common::Status InferenceSession::Initialize() {
     LOGS(*session_logger_, ERROR) << status.ErrorMessage();
   }
 
+  if (session_profiler_.IsEnabled()) {
+    session_profiler_.EndTimeAndRecordEvent(profiling::SESSION_EVENT, "session_initialization", tp);
+  }
   return status;
 }
 
