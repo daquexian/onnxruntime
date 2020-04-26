@@ -67,7 +67,7 @@ OptimizerExecutionFrame::Info::Info(const std::vector<const Node*>& nodes,
   // create kernels for these nodes
   for (auto* node : nodes) {
     std::unique_ptr<OpKernel> op_kernel;
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
+  // std::cout << __FILE__ << " " << __LINE__ << std::endl;
     std::shared_ptr<KernelRegistry> kernel_registry = cpu_execution_provider_->GetKernelRegistry();
     ORT_THROW_IF_ERROR(kernel_registry->TryCreateKernel(*node, *cpu_execution_provider_, initializers_,
                                                         ort_value_name_idx_map_, FuncManager(), data_transfer_mgr_,
