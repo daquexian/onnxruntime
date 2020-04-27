@@ -270,8 +270,6 @@ int GetElemType(const ModelProto& m, const string& name) {
   return v.type().tensor_type().elem_type();
 }
 
-std::vector<void*> ps;
-
 Result GenerateRandInputs(const ModelProto& model, std::map<string, MyTensorShape> input_shapes = std::map<string, MyTensorShape>{}) {
   const auto input_names = GetInputNames(model);
   std::map<string, MyTensorShape> full_input_shapes;
@@ -669,7 +667,7 @@ bool isEqual(const dqx::Tensor& value1, const dqx::Tensor& value2) {
   return true;
 }
 
-bool Check(const ModelProto& model1, const ModelProto& model2, std::map<string, MyTensorShape> input_shapes = std::map<string, MyTensorShape>{}, const int n = 3) {
+bool Check(const ModelProto& model1, const ModelProto& model2, std::map<string, MyTensorShape> input_shapes = std::map<string, MyTensorShape>{}, const int n = 1) {
   Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "dqxdqx");
   // TODO: checker
   for (int i = 0; i < n; i++) {
@@ -689,6 +687,7 @@ bool Check(const ModelProto& model1, const ModelProto& model2, std::map<string, 
   return true;
 }
 
+#ifndef __EMSCRIPTEN__
 int main(int argc, char** argv) {
   ONNX_NAMESPACE::ModelProto model_proto;
   std::ifstream ifs(argv[1]);
@@ -702,66 +701,145 @@ int main(int argc, char** argv) {
   }
   std::ofstream ofs(argv[2]);
   new_model.SerializeToOstream(&ofs);
-  for (auto* p : ps) {
-    free(p);
-  }
 
   return 0;
 }
+#endif
 
-// extern "C" {
-//
-// #ifdef __EMSCRIPTEN__
-// bool onnxruntime_export(void* buffer1, const size_t bufferlen1) {
-// #else
-// int main(int argc, char** argv) {
-// #endif
-//   Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "dqxdqx");
-//   std::shared_ptr<Model> model;
-// #ifdef __EMSCRIPTEN__
-//   ONNX_NAMESPACE::ModelProto model_proto;
-//   model_proto.ParseFromString(std::string(static_cast<char*>(buffer1), bufferlen1));
-//   Model::Load(model_proto, model, nullptr, logging::Logger());
-// #else
-//   std::string model_uri("/home/dev/files/squeezenet1.1.onnx");
-//   Model::Load(model_uri, model, nullptr, logging::Logger());
-// #endif
-//
-//   Graph& graph = model->MainGraph();
-//   auto memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
-//   size_t input_tensor_size = 224 * 224 * 3;  // simplify ... using known dim values to calculate size
-//   std::vector<float> input_tensor_values(input_tensor_size);
-//   for (unsigned int i = 0; i < input_tensor_size; i++) {
-//     // input_tensor_values[i] = (float)i / (input_tensor_size + 1) * 10000 + 1000;
-//     input_tensor_values[i] = 100;
-//   }
-//   std::vector<int64_t> input_node_dims{1, 3, 224, 224};  // simplify... this model has only 1 input node {1, 3, 224, 224}.
-//   Ort::Value input_tensor = Ort::Value::CreateTensor<float>(memory_info, input_tensor_values.data(), input_tensor_size, input_node_dims.data(), 4);
-//   const Tensor& tensor = reinterpret_cast<OrtValue**>(&input_tensor)[0]->Get<Tensor>();
-//   std::cout << "data: " << tensor.Data<float>()[0] << ", " << tensor.Data<float>()[1] << std::endl;
-//   ONNX_NAMESPACE::TypeProto type_proto;
-//   type_proto.mutable_tensor_type()->set_elem_type(1);
-//   type_proto.mutable_tensor_type()->mutable_shape()->add_dim()->set_dim_value(1);
-//   type_proto.mutable_tensor_type()->mutable_shape()->add_dim()->set_dim_value(3);
-//   type_proto.mutable_tensor_type()->mutable_shape()->add_dim()->set_dim_value(224);
-//   type_proto.mutable_tensor_type()->mutable_shape()->add_dim()->set_dim_value(224);
-//   ONNX_NAMESPACE::TensorProto in_tensorproto =
-//       utils::TensorToTensorProto(tensor, "data", type_proto);
-//
-//   graph.AddInitializedTensor(in_tensorproto);
-//
-//   bool tmp;
-//   test(graph, tmp, 0, logging::Logger());
-//   std::cout << tmp << std::endl;
-// #ifndef __EMSCRIPTEN__
-//   auto new_proto = model->ToProto();
-//   std::ofstream ofs(argv[1]);
-//   new_proto.SerializeToOstream(&ofs);
-//   ONNX_NAMESPACE::ModelProto opt_model = ONNX_NAMESPACE::optimization::OptimizeFixed(
-//       new_proto,
-//       {"eliminate_unused_initializer"});
-//   opt_model.SerializeToOstream(&ofs);
-// #endif
-//   return 0;
-// }
-// }
+#ifdef __EMSCRIPTEN__
+#ifdef ONNXSIM_STANDALONE
+
+extern "C" {
+
+struct WasmBuffer {
+  unsigned char* output_buffer1 = nullptr;
+  unsigned char* output_buffer2 = nullptr;
+  unsigned char* output_buffer3 = nullptr;
+  size_t output_buffer_size1 = 0;
+  size_t output_buffer_size2 = 0;
+  size_t output_buffer_size3 = 0;
+
+  void freeBuffers() {
+    freeBuffer1();
+    freeBuffer2();
+    freeBuffer3();
+  }
+  void freeBuffer1() {
+    if (output_buffer1 != nullptr) {
+      free(output_buffer1);
+      output_buffer1 = nullptr;
+      output_buffer_size1 = 0;
+    }
+  }
+  void freeBuffer2() {
+    if (output_buffer2 != nullptr) {
+      free(output_buffer2);
+      output_buffer2 = nullptr;
+      output_buffer_size2 = 0;
+    }
+  }
+  void freeBuffer3() {
+    if (output_buffer3 != nullptr) {
+      free(output_buffer3);
+      output_buffer3 = nullptr;
+      output_buffer_size3 = 0;
+    }
+  }
+  void setBuffer1(void* buf, const size_t buflen) {
+    // we own the buf
+    output_buffer1 = static_cast<unsigned char*>(buf);
+    output_buffer_size1 = buflen;
+  }
+  void setBuffer1(const std::string& str) {
+    output_buffer1 = static_cast<unsigned char*>(malloc(str.size()));
+    memcpy(output_buffer1, str.c_str(), str.size());
+    output_buffer_size1 = str.size();
+  }
+  void setBuffer2(Buffer buf) { setBuffer2(buf.first, buf.second); }
+  void setBuffer2(void* buf, const size_t buflen) {
+    // we own the buf
+    output_buffer2 = static_cast<unsigned char*>(buf);
+    output_buffer_size2 = buflen;
+  }
+  void setBuffer2(const std::string& str) {
+    output_buffer2 = static_cast<unsigned char*>(malloc(str.size()));
+    memcpy(output_buffer2, str.c_str(), str.size());
+    output_buffer_size2 = str.size();
+  }
+  void setBuffer3(const std::string& str) {
+    output_buffer3 = static_cast<unsigned char*>(malloc(str.size()));
+    memcpy(output_buffer3, str.c_str(), str.size());
+    output_buffer_size3 = str.size();
+  }
+};
+
+WasmBuffer* create_exporter() {
+  WasmBuffer* ctx;
+
+  ctx = static_cast<WasmBuffer*>(malloc(sizeof(WasmBuffer)));
+  ctx->output_buffer_size1 = 0;
+  ctx->output_buffer_size2 = 0;
+  ctx->output_buffer_size3 = 0;
+
+  return ctx;
+}
+
+void free_exporter(WasmBuffer* ctx) {
+  if (ctx != NULL) {
+    ctx->freeBuffers();
+    free(ctx);
+    ctx = NULL;
+  }
+}
+
+unsigned char* get_buffer1(WasmBuffer* ctx) { return ctx->output_buffer1; }
+
+size_t get_buffer_size1(WasmBuffer* ctx) { return ctx->output_buffer_size1; }
+
+unsigned char* get_buffer2(WasmBuffer* ctx) { return ctx->output_buffer2; }
+
+size_t get_buffer_size2(WasmBuffer* ctx) { return ctx->output_buffer_size2; }
+
+unsigned char* get_buffer3(WasmBuffer* ctx) { return ctx->output_buffer3; }
+
+size_t get_buffer_size3(WasmBuffer* ctx) { return ctx->output_buffer_size3; }
+
+bool onnxsimplify_export(WasmBuffer* ctx, void* buf, const size_t len) {
+  try {
+    onnx::ModelProto opt_model;
+    {
+      onnx::ModelProto model;
+      bool s1 = model.ParseFromArray(buf, len);
+      free(buf);
+      if (!s1) {
+        ctx->setBuffer3("parsing ONNX model fails");
+        return false;
+      }
+      opt_model = Simplify(model);
+      bool check = Check(opt_model, model);
+      if (check) {
+        std::cout << "check ok" << std::endl;
+      } else {
+        std::cout << "check failed" << std::endl;
+      }
+    }
+    auto byte_size = opt_model.ByteSizeLong();
+    void *buf = malloc(byte_size);
+    bool s2 = opt_model.SerializeToArray(buf, byte_size);
+    if (!s2) {
+      ctx->setBuffer3("serialing ONNX model fails");
+      return false;
+    }
+    ctx->setBuffer1(buf, byte_size);
+    return true;
+  } catch (std::exception &e) {
+    ctx->setBuffer3(e.what());
+    return false;
+  }
+
+}
+}
+
+#endif
+#endif
+

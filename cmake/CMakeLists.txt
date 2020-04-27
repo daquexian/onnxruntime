@@ -23,6 +23,12 @@ include(CheckLanguage)
 # So we cant' regulate simply with the standard.
 set(CMAKE_CXX_STANDARD 14)
 
+if (${CMAKE_SOURCE_DIR} STREQUAL ${PROJECT_SOURCE_DIR})
+    set(ONNXSIM_STANDALONE ON)
+else()
+    set(ONNXSIM_STANDALONE OFF)
+endif()
+
 # General C# prperties
 if (onnxruntime_BUILD_CSHARP)
   check_language(CSharp)
