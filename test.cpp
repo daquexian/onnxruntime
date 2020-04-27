@@ -26,6 +26,8 @@ using ONNX_NAMESPACE::ValueInfoProto;
 using std::string;
 using std::vector;
 
+#define FOR(i, range) for (auto i = decltype(range)(0); i < range; i++)
+
 namespace dqx {
 struct Tensor {
   using dim_t = int64_t;
@@ -297,7 +299,7 @@ Result GenerateRandInputs(const ModelProto& model, std::map<string, MyTensorShap
   case dtype_num: {                                                 \
     dtype* buf = static_cast<dtype*>(malloc(size * sizeof(dtype))); \
     srand(time(NULL));                                              \
-    for (int i = 0; i < size; i++) {                                \
+    FOR(i, size) {                                                  \
       buf[i] = rand() % 2000 - 1000;                                \
     }                                                               \
     inputs.emplace(p.first, dqx::Tensor(buf, p.second, elem_type)); \
@@ -327,206 +329,6 @@ Result GenerateRandInputs(const ModelProto& model, std::map<string, MyTensorShap
   }
   return inputs;
 }
-
-// OrtValue* Clone(OrtValue *v) {
-//     OrtValue *v2 = new OrtValue();
-//     v2.Init(v->Get<char*>(), v->Type(), )
-//     auto memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
-//     if (!v->IsTensor()) {
-//       throw std::runtime_error("Clone only supports tensor");
-//     }
-//     int elem_size;
-//     auto elem_type = v->GetTensorTypeAndShapeInfo().GetElementType();
-//     switch (elem_type) {
-// #define SET_ELEM_SIZE(onnx_dtype, size) \
-//   case onnx_dtype: {                    \
-//     elem_size = size;                   \
-//     break;                              \
-//   }
-//
-//       SET_ELEM_SIZE(1, 4)
-//       SET_ELEM_SIZE(2, 1)
-//       SET_ELEM_SIZE(3, 1)
-//       SET_ELEM_SIZE(4, 2)
-//       SET_ELEM_SIZE(5, 2)
-//       SET_ELEM_SIZE(6, 4)
-//       SET_ELEM_SIZE(7, 8)
-//       SET_ELEM_SIZE(11, 8)
-//       SET_ELEM_SIZE(12, 4)
-//       SET_ELEM_SIZE(13, 8)
-// #undef SET_ELEM_SIZE
-//
-//       default: {
-//         throw std::runtime_error("Type " + std::to_string(elem_type) + " in Clone has not been supported");
-//       }
-//     }
-//     auto byte_size = value.GetTensorTypeAndShapeInfo().GetElementCount() * elem_size;
-//     void* buf = malloc(byte_size);
-//     memcpy(buf, value.GetTensorMutableData<void>(), byte_size);
-//     ps.push_back(buf);
-//     auto new_value = Ort::Value::CreateTensor(memory_info, buf, byte_size, value.GetTensorTypeAndShapeInfo().GetShape().data(), value.GetTensorTypeAndShapeInfo().GetDimensionsCount(), value.GetTensorTypeAndShapeInfo().GetElementType()).release();
-//     return new_value;
-// }
-
-// Result Clone(Result& r) {
-//   Result res;
-//
-//   for (auto& p : r) {
-//     auto memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
-//     auto& value = p.second;
-//     if (!value.IsTensor()) {
-//       throw std::runtime_error("Clone only supports tensor");
-//     }
-//     int elem_size;
-//     auto elem_type = value.GetTensorTypeAndShapeInfo().GetElementType();
-//     switch (elem_type) {
-// #define SET_ELEM_SIZE(onnx_dtype, size) \
-//   case onnx_dtype: {                    \
-//     elem_size = size;                   \
-//     break;                              \
-//   }
-//
-//       SET_ELEM_SIZE(1, 4)
-//       SET_ELEM_SIZE(2, 1)
-//       SET_ELEM_SIZE(3, 1)
-//       SET_ELEM_SIZE(4, 2)
-//       SET_ELEM_SIZE(5, 2)
-//       SET_ELEM_SIZE(6, 4)
-//       SET_ELEM_SIZE(7, 8)
-//       SET_ELEM_SIZE(11, 8)
-//       SET_ELEM_SIZE(12, 4)
-//       SET_ELEM_SIZE(13, 8)
-// #undef SET_ELEM_SIZE
-//
-//       default: {
-//         throw std::runtime_error("Type " + std::to_string(elem_type) + " in Clone has not been supported");
-//       }
-//     }
-//     auto byte_size = value.GetTensorTypeAndShapeInfo().GetElementCount() * elem_size;
-//     void* buf = malloc(byte_size);
-//     memcpy(buf, value.GetTensorMutableData<void>(), byte_size);
-//     ps.push_back(buf);
-//     auto new_value = Ort::Value::CreateTensor(memory_info, buf, byte_size, value.GetTensorTypeAndShapeInfo().GetShape().data(), value.GetTensorTypeAndShapeInfo().GetDimensionsCount(), value.GetTensorTypeAndShapeInfo().GetElementType());
-//     res.emplace(p.first, std::move(new_value));
-//   }
-//   return res;
-// }
-//
-/*
-Status test(Graph& graph, bool& modified, int graph_level, const logging::Logger& logger) {
-    auto ret = graph.Resolve();
-    if (!ret.IsOK()) {
-        throw std::runtime_error(ret.ErrorMessage() + " " + ret.ToString());
-    }
-  GraphViewer graph_viewer(graph);
-  auto& order = graph_viewer.GetNodesInTopologicalOrder();
-
-  for (NodeIndex i : order) {
-    auto* node = graph.GetNode(i);
-    if (!node) {
-      continue;
-    }
-
-    // TODO:
-    // ORT_RETURN_IF_ERROR(Recurse(*node, modified, graph_level, logger));
-
-    InitializedTensorSet constant_inputs;
-
-    // we currently constant fold using the CPU EP only.
-    // if the node is assigned to a different EP we can run it if it's an ONNX op as we have CPU based implementations
-    // for all ONNX ops. if it's from a different domain we can't.
-    // NOTE: This is in addition to the IsSupportedProvider check below which will optionally do further filtering
-    // on the EPs we constant fold for.
-    auto ep_type = node->GetExecutionProviderType();
-    bool cpu_ep = ep_type == kCpuExecutionProvider;
-    if (!cpu_ep && node->Domain() != kOnnxDomain) {
-      continue;
-    }
-
-    // Check if constant folding can be applied on this node.
-    // if (!graph_utils::IsSupportedProvider(*node, GetCompatibleExecutionProviders()) ||
-    //     excluded_op_types_.find(node->OpType()) != excluded_op_types_.end() ||
-    if (  // constant folding does not support executing a node that includes subgraphs (control flow operators,
-        // such as If/Loop/Scan, fall into this category). individual nodes in the subgraph will be processed
-        // by the Recurse call above
-        node->ContainsSubgraph() ||
-        !graph_utils::AllNodeInputsAreConstant(graph, *node, constant_inputs)) {
-      continue;
-    }
-
-    // override the EP while setting up OptimizerExecutionFrame::Info so that it will use the CPU kernel for Compute.
-    if (!cpu_ep) {
-      node->SetExecutionProviderType(kCpuExecutionProvider);
-    }
-
-    // Create execution frame for executing constant nodes.
-    OptimizerExecutionFrame::Info info({node}, constant_inputs);
-
-    // undo the EP change in case something fails prior to node removal
-    if (!cpu_ep) {
-      node->SetExecutionProviderType(ep_type);
-    }
-
-    std::vector<int> fetch_mlvalue_idxs;
-    for (const auto* node_out : node->OutputDefs()) {
-      fetch_mlvalue_idxs.push_back(info.GetMLValueIndex(node_out->Name()));
-    }
-
-    OptimizerExecutionFrame frame(info, fetch_mlvalue_idxs);
-
-    auto* kernel = info.GetKernel(node->Index());
-    OpKernelContext op_kernel_context(&frame, kernel, nullptr, onnxruntime::logging::LoggingManager::DefaultLogger());
-
-    ORT_RETURN_IF_ERROR(kernel->Compute(&op_kernel_context));
-
-    std::vector<OrtValue> fetches;
-    ORT_RETURN_IF_ERROR(frame.GetOutputs(fetches));
-
-    // Go over all output node args and substitute them with the newly computed tensors, which will be
-    // added to the graph as initializers.
-    ORT_ENFORCE(fetches.size() == node->OutputDefs().size());
-    bool unsupported_output_type = false;
-    for (size_t fetch_idx = 0; fetch_idx < fetches.size(); ++fetch_idx) {
-      OrtValue& ort_value = fetches[fetch_idx];
-
-      if (!ort_value.IsTensor()) {
-        LOGS(logger, WARNING) << "Unsupported output type of " << ort_value.Type()
-                              << ". Can't constant fold " << node->OpType() << " node '" << node->Name() << "'";
-        unsupported_output_type = true;
-        break;
-      }
-
-      // Build the TensorProto that corresponds to the computed OrtValue and add it as initializer to the graph.
-      const auto* constant_arg_out = node->OutputDefs()[fetch_idx];
-      ORT_ENFORCE(ort_value.IsTensor());
-      const Tensor& out_tensor = ort_value.Get<Tensor>();
-// std::cout << "name: " << constant_arg_out->Name();
-//       for (int i = 0; i < 20; i++) {
-//           std::cout << ", value " << i << ": " << out_tensor.Data<float>()[i];
-//       }
-      std::cout << std::endl;
-      ONNX_NAMESPACE::TensorProto out_tensorproto =
-          utils::TensorToTensorProto(out_tensor, constant_arg_out->Name(), *constant_arg_out->TypeAsProto());
-
-      graph.AddInitializedTensor(out_tensorproto);
-    }
-
-    if (unsupported_output_type)
-      continue;
-
-    // Remove the output edges of the constant node and then remove the node itself.
-    graph_utils::RemoveNodeOutputEdges(graph, *node);
-    graph.RemoveNode(node->Index());
-
-    // The output nodes already have the right input arg, since we used the same name in the initializer.
-    // We could remove unused graph initializers here, but Graph::Resolve() will take care of it.
-
-    modified = true;
-  }
-
-  return Status::OK();
-}
-*/
 
 Result ForwardWithInput(const ModelProto& model_proto, Result inputs) {
   Result outputs;
@@ -635,7 +437,6 @@ Result ForwardWithInput(const ModelProto& model_proto, Result inputs) {
     // Go over all output node args and substitute them with the newly computed tensors, which will be
     // added to the graph as initializers.
     ORT_ENFORCE(fetches.size() == node->OutputDefs().size());
-    bool unsupported_output_type = false;
     for (size_t fetch_idx = 0; fetch_idx < fetches.size(); ++fetch_idx) {
       OrtValue& ort_value = fetches[fetch_idx];
 
@@ -661,25 +462,6 @@ Result ForwardWithInput(const ModelProto& model_proto, Result inputs) {
       graph.AddInitializedTensor(out_tensorproto);
 
       if (std::find(output_names.begin(), output_names.end(), constant_arg_out->Name()) != output_names.end()) {
-        size_t byte_size = 1;
-        bool has_dim_value = false;
-        // std::vector<int64_t> shape;
-        // for (const auto& dim : constant_arg_out->Shape()->dim()) {
-        //   if (!dim.has_dim_value()) {
-        //       std::cout << "param: " << dim.dim_param() << std::endl;
-        //     throw std::runtime_error("wrong shape");
-        //   }
-        //   byte_size *= dim.dim_value();
-        //   shape.push_back(dim.dim_value());
-        //   has_dim_value = true;
-        // }
-        // if (!has_dim_value) {
-        //       std::cout << "no dim?" << std::endl;
-        //       std::cout << constant_arg_out->Name() << std::endl;
-        //       std::cout << constant_arg_out->TypeAsProto()->SerializeAsString() << std::endl;
-        //   throw std::runtime_error("wrong shape");
-        // }
-        // constant_arg_out->Shape();
         const auto elem_type = constant_arg_out->TypeAsProto()->tensor_type().elem_type();
 
         auto tensor = dqx::Tensor(ort_value.Get<Tensor>().DataRaw(), out_tensor.Shape().GetDims(), elem_type);
@@ -703,31 +485,10 @@ Result Forward(Ort::Env& env, const ModelProto& model, const Result& known_input
 
   auto rand_inputs = GenerateRandInputs(model, input_shapes);
   for (auto& x : known_inputs) {
-      std::cout << rand_inputs[x.first].data<float>()[0] << std::endl;
-      rand_inputs[x.first] = x.second;
-      std::cout << rand_inputs[x.first].data<float>()[0] << std::endl;
+    std::cout << rand_inputs[x.first].data<float>()[0] << std::endl;
+    rand_inputs[x.first] = x.second;
+    std::cout << rand_inputs[x.first].data<float>()[0] << std::endl;
   }
-  // vector<const char*> input_names;
-  // vector<Ort::Value> input_values;
-  // for (auto& x : rand_inputs) {
-  //   input_names.push_back(x.first.c_str());
-  //   if (known_inputs.find(x.first) != known_inputs.end()) {
-  //     input_values.push_back(std::move(known_inputs.at(x.first)));
-  //     // input_values.push_back(std::move(known_inputs[x.first]));
-  //   } else {
-  //     input_values.push_back(std::move(x.second));
-  //   }
-  // }
-  // vector<const char*> output_names;
-  // for (const auto& x : model.graph().output()) {
-  //   output_names.push_back(x.name().c_str());
-  // }
-
-  // auto outputs = sess.Run(Ort::RunOptions{nullptr}, input_names.data(), input_values.data(), input_names.size(), output_names.data(), output_names.size());
-  // Result res;
-  // for (size_t i = 0; i < output_names.size(); i++) {
-  //   res.emplace(output_names[i], std::move(outputs[i]));
-  // }
   Result res = ForwardWithInput(model, rand_inputs);
   return res;
 }
@@ -771,7 +532,7 @@ void EliminateConstNodes(ModelProto& model, const vector<NodeProto>& const_nodes
 #define ADD_ATTR_WITH_DTYPE(onnx_type, dtype)                   \
   case onnx_type: {                                             \
     std::vector<dtype> tmp;                                     \
-    for (size_t i = 0; i < v.elem_count(); i++) {               \
+    FOR(i, v.elem_count()) {                                    \
       tmp.push_back(v.mutable_data<dtype>()[i]);                \
     }                                                           \
     auto tp = ONNX_NAMESPACE::ToTensor(tmp);                    \
@@ -858,11 +619,11 @@ bool isEqual(const dqx::Tensor& value1, const dqx::Tensor& value2) {
   float atol = 1e-5;
   float rtol = 1e-3;
   switch (elem_type) {
-#define COMPARE_WITH_DTYPE(onnx_dtype, dtype)                       \
+#define COMPARE_WITH_SIGNED_DTYPE(onnx_dtype, dtype)                \
   case onnx_dtype: {                                                \
     const auto* p1 = value1.data<dtype>();                          \
     const auto* p2 = value2.data<dtype>();                          \
-    for (size_t i = 0; i < cnt; i++) {                              \
+    FOR(i, cnt) {                                                   \
       if (std::abs(*p1 - *p2) > (atol + std::abs(rtol * (*p1)))) {  \
         std::cout << "p1: " << *p1 << ", p2: " << *p2 << std::endl; \
         return false;                                               \
@@ -872,18 +633,35 @@ bool isEqual(const dqx::Tensor& value1, const dqx::Tensor& value2) {
     }                                                               \
     break;                                                          \
   }
-    COMPARE_WITH_DTYPE(1, float)
-    COMPARE_WITH_DTYPE(2, uint8_t)
-    COMPARE_WITH_DTYPE(3, int8_t)
-    COMPARE_WITH_DTYPE(4, uint16_t)
-    COMPARE_WITH_DTYPE(5, int16_t)
-    COMPARE_WITH_DTYPE(6, int32_t)
-    COMPARE_WITH_DTYPE(7, int64_t)
-    COMPARE_WITH_DTYPE(9, bool)
-    COMPARE_WITH_DTYPE(11, double)
-    COMPARE_WITH_DTYPE(12, uint32_t)
-    COMPARE_WITH_DTYPE(13, uint64_t)
-#undef COMPARE_WITH_DTYPE
+#define COMPARE_WITH_UNSIGNED_DTYPE(onnx_dtype, dtype)                                       \
+  case onnx_dtype: {                                                                         \
+    const auto* p1 = value1.data<dtype>();                                                   \
+    const auto* p2 = value2.data<dtype>();                                                   \
+    FOR(i, cnt) {                                                                            \
+      if ((std::max<dtype>(*p1, *p2) - std::min<dtype>(*p1, *p2)) > (atol + rtol * (*p1))) { \
+        std::cout << "p1: " << *p1 << ", p2: " << *p2 << std::endl;                          \
+        return false;                                                                        \
+      }                                                                                      \
+      p1++;                                                                                  \
+      p2++;                                                                                  \
+    }                                                                                        \
+    break;                                                                                   \
+  }
+
+    COMPARE_WITH_SIGNED_DTYPE(1, float)
+    COMPARE_WITH_UNSIGNED_DTYPE(2, uint8_t)
+    COMPARE_WITH_SIGNED_DTYPE(3, int8_t)
+    COMPARE_WITH_UNSIGNED_DTYPE(4, uint16_t)
+    COMPARE_WITH_SIGNED_DTYPE(5, int16_t)
+    COMPARE_WITH_SIGNED_DTYPE(6, int32_t)
+    COMPARE_WITH_SIGNED_DTYPE(7, int64_t)
+    COMPARE_WITH_SIGNED_DTYPE(9, bool)
+    COMPARE_WITH_SIGNED_DTYPE(11, double)
+    COMPARE_WITH_UNSIGNED_DTYPE(12, uint32_t)
+    COMPARE_WITH_UNSIGNED_DTYPE(13, uint64_t)
+
+#undef COMPARE_WITH_SIGNED_DTYPE
+#undef COMPARE_WITH_UNSIGNED_DTYPE
     default: {
       throw std::runtime_error("type " + std::to_string(elem_type) + " is not supported in is_equal()");
     }
