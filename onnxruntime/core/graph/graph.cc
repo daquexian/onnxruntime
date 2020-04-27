@@ -1797,7 +1797,7 @@ Status Graph::VerifyNodeAndOpMatch() {
 
     if (!node.Op()) {
       try {
-        checker::check_node(node_proto, ctx, lsc);
+        // checker::check_node(node_proto, ctx, lsc);
       } catch (const std::exception& ex) {
         return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_GRAPH, "This is an invalid model. Error in Node:", node_name, " : ", ex.what());
       }
