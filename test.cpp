@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+#include "test.h"
+
 #include <onnx/defs/attr_proto_util.h>
 #include <onnx/shape_inference/implementation.h>
 #include "core/graph/model.h"
@@ -250,8 +252,6 @@ ValueInfoProto GetValueInfoAll(const ModelProto& m, const std::string& name) {
   throw std::runtime_error("Cannot find value info of " + name);
 }
 
-using MyTensorShape = std::vector<int64_t>;
-
 MyTensorShape GetShapeFromValueInfoProto(const ValueInfoProto& v) {
   MyTensorShape shape;
   for (const auto& dim : v.type().tensor_type().shape().dim()) {
@@ -263,6 +263,16 @@ MyTensorShape GetShapeFromValueInfoProto(const ValueInfoProto& v) {
 MyTensorShape GetShape(const ModelProto& m, const std::string& name) {
   const auto v = GetValueInfoAll(m, name);
   return GetShapeFromValueInfoProto(v);
+}
+
+bool CheckStaticInputShape(const ModelProto &m, const std::string &name) {
+    const auto shape = GetShape(m, name);
+    for (const auto &x : shape) {
+        if (x <= 0) {
+            return false;
+        }
+    }
+    return true;
 }
 
 int GetElemType(const ModelProto& m, const string& name) {
@@ -475,7 +485,7 @@ Result ForwardWithInput(const ModelProto& model_proto, Result inputs) {
   return outputs;
 }
 
-Result Forward(Ort::Env& env, const ModelProto& model, const Result& known_inputs = Result{}, std::map<string, MyTensorShape> input_shapes = std::map<string, MyTensorShape>{}) {
+Result Forward(Ort::Env& env, const ModelProto& model, const Result& known_inputs = Result{}, const std::map<string, MyTensorShape> input_shapes = std::map<string, MyTensorShape>{}) {
   auto rand_inputs = GenerateRandInputs(model, input_shapes);
   for (auto& x : known_inputs) {
     std::cout << rand_inputs[x.first].data<float>()[0] << std::endl;
@@ -487,9 +497,9 @@ Result Forward(Ort::Env& env, const ModelProto& model, const Result& known_input
 }
 
 // modelproto passed by value
-Result ForwardForNodeOutputs(Ort::Env& env, ModelProto model, const std::vector<NodeProto>& nodes) {  // add input_shapes
+Result ForwardForNodeOutputs(Ort::Env& env, ModelProto model, const std::vector<NodeProto>& nodes, const std::map<string, MyTensorShape> input_shapes = std::map<string, MyTensorShape>{}) {  // add input_shapes
   AddFeatureToOutput(model, nodes);
-  return Forward(env, model);
+  return Forward(env, model, Result{}, input_shapes);
 }
 
 void InsertElem(google::protobuf::RepeatedPtrField<NodeProto>* repeated, int index, const NodeProto& elem) {
@@ -562,37 +572,41 @@ void EliminateConstNodes(ModelProto& model, const vector<NodeProto>& const_nodes
   }
 }
 
-ModelProto Simplify(ModelProto model) {
+ModelProto Simplify(ModelProto model, bool optimize, MyTensorShapeMap input_shapes) {
   Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "dqxdqx");
-  model = ONNX_NAMESPACE::optimization::OptimizeFixed(
-      model,
-      {"eliminate_deadend", "eliminate_identity", "eliminate_nop_dropout",
-       "eliminate_nop_monotone_argmax", "eliminate_nop_pad",
-       "extract_constant_to_initializer", "eliminate_unused_initializer",
-       "eliminate_nop_transpose", "fuse_add_bias_into_conv",
-       "fuse_consecutive_concats",
-       "fuse_bn_into_conv",
-       "fuse_consecutive_log_softmax",
-       "fuse_consecutive_reduce_unsqueeze", "fuse_consecutive_squeezes",
-       "fuse_consecutive_transposes", "fuse_matmul_add_bias_into_gemm",
-       "fuse_pad_into_conv", "fuse_transpose_into_gemm"});
+  if (optimize) {
+    model = ONNX_NAMESPACE::optimization::OptimizeFixed(
+        model,
+        {"eliminate_deadend", "eliminate_identity", "eliminate_nop_dropout",
+         "eliminate_nop_monotone_argmax", "eliminate_nop_pad",
+         "extract_constant_to_initializer", "eliminate_unused_initializer",
+         "eliminate_nop_transpose", "fuse_add_bias_into_conv",
+         "fuse_consecutive_concats",
+         "fuse_bn_into_conv",
+         "fuse_consecutive_log_softmax",
+         "fuse_consecutive_reduce_unsqueeze", "fuse_consecutive_squeezes",
+         "fuse_consecutive_transposes", "fuse_matmul_add_bias_into_gemm",
+         "fuse_pad_into_conv", "fuse_transpose_into_gemm"});
+  }
   ONNX_NAMESPACE::shape_inference::InferShapes(model);
   const auto const_nodes = GetConstNode(model);
-  auto res = ForwardForNodeOutputs(env, model, const_nodes);
+  auto res = ForwardForNodeOutputs(env, model, const_nodes, input_shapes);
   EliminateConstNodes(model, const_nodes, res);
 
-  model = ONNX_NAMESPACE::optimization::OptimizeFixed(
-      model,
-      {"eliminate_deadend", "eliminate_identity", "eliminate_nop_dropout",
-       "eliminate_nop_monotone_argmax", "eliminate_nop_pad",
-       "extract_constant_to_initializer", "eliminate_unused_initializer",
-       "eliminate_nop_transpose", "fuse_add_bias_into_conv",
-       "fuse_consecutive_concats",
-       "fuse_bn_into_conv",
-       "fuse_consecutive_log_softmax",
-       "fuse_consecutive_reduce_unsqueeze", "fuse_consecutive_squeezes",
-       "fuse_consecutive_transposes", "fuse_matmul_add_bias_into_gemm",
-       "fuse_pad_into_conv", "fuse_transpose_into_gemm"});
+  if (optimize) {
+    model = ONNX_NAMESPACE::optimization::OptimizeFixed(
+        model,
+        {"eliminate_deadend", "eliminate_identity", "eliminate_nop_dropout",
+         "eliminate_nop_monotone_argmax", "eliminate_nop_pad",
+         "extract_constant_to_initializer", "eliminate_unused_initializer",
+         "eliminate_nop_transpose", "fuse_add_bias_into_conv",
+         "fuse_consecutive_concats",
+         "fuse_bn_into_conv",
+         "fuse_consecutive_log_softmax",
+         "fuse_consecutive_reduce_unsqueeze", "fuse_consecutive_squeezes",
+         "fuse_consecutive_transposes", "fuse_matmul_add_bias_into_gemm",
+         "fuse_pad_into_conv", "fuse_transpose_into_gemm"});
+  }
 
   return model;
 }
@@ -662,7 +676,7 @@ bool isEqual(const dqx::Tensor& value1, const dqx::Tensor& value2) {
   return true;
 }
 
-bool Check(const ModelProto& model1, const ModelProto& model2, std::map<string, MyTensorShape> input_shapes = std::map<string, MyTensorShape>{}, const int n = 1) {
+bool Check(const ModelProto& model1, const ModelProto& model2, std::map<string, MyTensorShape> input_shapes, const int n) {
   Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "dqxdqx");
   // TODO: checker
   for (int i = 0; i < n; i++) {
@@ -820,7 +834,7 @@ bool onnxsimplify_export(WasmBuffer* ctx, void* buf, const size_t len) {
       }
     }
     auto byte_size = opt_model.ByteSizeLong();
-    void *buf = malloc(byte_size);
+    void* buf = malloc(byte_size);
     bool s2 = opt_model.SerializeToArray(buf, byte_size);
     if (!s2) {
       ctx->setBuffer3("serialing ONNX model fails");
@@ -828,14 +842,12 @@ bool onnxsimplify_export(WasmBuffer* ctx, void* buf, const size_t len) {
     }
     ctx->setBuffer1(buf, byte_size);
     return true;
-  } catch (std::exception &e) {
+  } catch (std::exception& e) {
     ctx->setBuffer3(e.what());
     return false;
   }
-
 }
 }
 
 #endif
 #endif
-
