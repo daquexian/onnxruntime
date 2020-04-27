@@ -476,11 +476,6 @@ Result ForwardWithInput(const ModelProto& model_proto, Result inputs) {
 }
 
 Result Forward(Ort::Env& env, const ModelProto& model, const Result& known_inputs = Result{}, std::map<string, MyTensorShape> input_shapes = std::map<string, MyTensorShape>{}) {
-  Ort::SessionOptions session_options;
-  session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_DISABLE_ALL);
-  const auto model_str = model.SerializeAsString();
-  Ort::Session sess(env, model_str.c_str(), model_str.size(), session_options);
-
   auto rand_inputs = GenerateRandInputs(model, input_shapes);
   for (auto& x : known_inputs) {
     std::cout << rand_inputs[x.first].data<float>()[0] << std::endl;
