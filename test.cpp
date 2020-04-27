@@ -702,6 +702,7 @@ int main(int argc, char** argv) {
 #endif
 
 #ifdef __EMSCRIPTEN__
+// TODO: it has not defined
 #ifdef ONNXSIM_STANDALONE
 
 extern "C" {

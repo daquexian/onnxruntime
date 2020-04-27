@@ -292,7 +292,7 @@ if (TransA == CblasNoTrans) {
                         }
 
                         if (std::isnan(*c)) {
-                            std::cout << ("c nan " + std::to_string(m) + " " + std::to_string(n)) << std::endl;
+                            std::cout << (std::to_string(__LINE__) + std::string("c nan ") + std::to_string(m) + " " + std::to_string(n)) << std::endl;
                             throw std::runtime_error("c nan " + std::to_string(m) + " " + std::to_string(n));
                         }
 
@@ -333,7 +333,7 @@ if (TransA == CblasNoTrans) {
                         }
 
                         if (std::isnan(*c)) {
-                            std::cout << (__LINE__ + std::string("c nan ") + std::to_string(m) + " " + std::to_string(n)) << std::endl;
+                            std::cout << (std::to_string(__LINE__) + std::string("c nan ") + std::to_string(m) + " " + std::to_string(n)) << std::endl;
                             throw std::runtime_error("c nan " + std::to_string(m) + " " + std::to_string(n));
                         }
                     }
@@ -376,7 +376,7 @@ if (TransA == CblasNoTrans) {
                         }
 
                         if (std::isnan(*c)) {
-                            std::cout << (__LINE__ + std::string("c nan ") + std::to_string(m) + " " + std::to_string(n)) << std::endl;
+                            std::cout << (std::to_string(__LINE__) + std::string("c nan ") + std::to_string(m) + " " + std::to_string(n)) << std::endl;
                             throw std::runtime_error("c nan " + std::to_string(m) + " " + std::to_string(n));
                         }
                     }
@@ -416,7 +416,7 @@ if (TransA == CblasNoTrans) {
                         }
 
                         if (std::isnan(*c)) {
-                            std::cout << (__LINE__ + std::string("c nan ") + std::to_string(m) + " " + std::to_string(n)) << std::endl;
+                            std::cout << (std::to_string(__LINE__) + std::string("c nan ") + std::to_string(m) + " " + std::to_string(n)) << std::endl;
                             throw std::runtime_error("c nan " + std::to_string(m) + " " + std::to_string(n));
                         }
                     }
