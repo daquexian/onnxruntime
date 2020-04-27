@@ -240,9 +240,9 @@ void ReferenceGemm(
     size_t ldc
     ) {
 
-    if (beta != 0 || alpha != 1) {
-        UNIMPLEMENTED;
-    }
+    // if (beta != 0 || alpha != 1) {
+    //     UNIMPLEMENTED;
+    // }
 
 if (TransA == CblasNoTrans) {
 
@@ -273,13 +273,23 @@ if (TransA == CblasNoTrans) {
                             // if (m == 0 || n == 98) {
                             //     std::cout << "sum: " << sum << std::endl;
                             // }
-                        if (std::isnan(sum)) {
-                            std::cout << ("sum nan " + std::to_string(m) + " " + std::to_string(n)) << std::endl;
-                            throw std::runtime_error("sum nan " + std::to_string(m) + " " + std::to_string(n));
-                        }
 
                         // *c = (*c * beta) + (sum * alpha);
-                        *c = sum;
+
+                        if (beta != 0) {
+                            *c *= beta;
+                            if (alpha != 1) {
+                                *c += sum * alpha;
+                            } else {
+                                *c += sum;
+                            }
+                        } else {
+                            if (alpha != 1) {
+                                *c = sum * alpha;
+                            } else {
+                                *c = sum;
+                            }
+                        }
 
                         if (std::isnan(*c)) {
                             std::cout << ("c nan " + std::to_string(m) + " " + std::to_string(n)) << std::endl;
@@ -306,7 +316,26 @@ if (TransA == CblasNoTrans) {
                             a += 1;
                         }
 
-                        *c = (*c * beta) + (sum * alpha);
+                        // *c = (*c * beta) + (sum * alpha);
+                        if (beta != 0) {
+                            *c *= beta;
+                            if (alpha != 1) {
+                                *c += sum * alpha;
+                            } else {
+                                *c += sum;
+                            }
+                        } else {
+                            if (alpha != 1) {
+                                *c = sum * alpha;
+                            } else {
+                                *c = sum;
+                            }
+                        }
+
+                        if (std::isnan(*c)) {
+                            std::cout << (__LINE__ + std::string("c nan ") + std::to_string(m) + " " + std::to_string(n)) << std::endl;
+                            throw std::runtime_error("c nan " + std::to_string(m) + " " + std::to_string(n));
+                        }
                     }
                 }
             }
@@ -330,7 +359,26 @@ if (TransA == CblasNoTrans) {
                             a += lda;
                         }
 
-                        *c = (*c * beta) + (sum * alpha);
+                        // *c = (*c * beta) + (sum * alpha);
+                        if (beta != 0) {
+                            *c *= beta;
+                            if (alpha != 1) {
+                                *c += sum * alpha;
+                            } else {
+                                *c += sum;
+                            }
+                        } else {
+                            if (alpha != 1) {
+                                *c = sum * alpha;
+                            } else {
+                                *c = sum;
+                            }
+                        }
+
+                        if (std::isnan(*c)) {
+                            std::cout << (__LINE__ + std::string("c nan ") + std::to_string(m) + " " + std::to_string(n)) << std::endl;
+                            throw std::runtime_error("c nan " + std::to_string(m) + " " + std::to_string(n));
+                        }
                     }
                 }
 
@@ -351,7 +399,26 @@ if (TransA == CblasNoTrans) {
                             a += lda;
                         }
 
-                        *c = (*c * beta) + (sum * alpha);
+                        // *c = (*c * beta) + (sum * alpha);
+                        if (beta != 0) {
+                            *c *= beta;
+                            if (alpha != 1) {
+                                *c += sum * alpha;
+                            } else {
+                                *c += sum;
+                            }
+                        } else {
+                            if (alpha != 1) {
+                                *c = sum * alpha;
+                            } else {
+                                *c = sum;
+                            }
+                        }
+
+                        if (std::isnan(*c)) {
+                            std::cout << (__LINE__ + std::string("c nan ") + std::to_string(m) + " " + std::to_string(n)) << std::endl;
+                            throw std::runtime_error("c nan " + std::to_string(m) + " " + std::to_string(n));
+                        }
                     }
                 }
             }
