@@ -265,14 +265,14 @@ MyTensorShape GetShape(const ModelProto& m, const std::string& name) {
   return GetShapeFromValueInfoProto(v);
 }
 
-bool CheckStaticInputShape(const ModelProto &m, const std::string &name) {
-    const auto shape = GetShape(m, name);
-    for (const auto &x : shape) {
-        if (x <= 0) {
-            return false;
-        }
+bool CheckStaticInputShape(const ModelProto& m, const std::string& name) {
+  const auto shape = GetShape(m, name);
+  for (const auto& x : shape) {
+    if (x <= 0) {
+      return false;
     }
-    return true;
+  }
+  return true;
 }
 
 int GetElemType(const ModelProto& m, const string& name) {
@@ -280,7 +280,7 @@ int GetElemType(const ModelProto& m, const string& name) {
   return v.type().tensor_type().elem_type();
 }
 
-Result GenerateRandInputs(const ModelProto& model, std::map<string, MyTensorShape> input_shapes = std::map<string, MyTensorShape>{}) {
+Result GenerateRandInputs(const ModelProto& model, const Result& known_inputs = Result{}, std::map<string, MyTensorShape> input_shapes = std::map<string, MyTensorShape>{}) {
   const auto input_names = GetInputNames(model);
   std::map<string, MyTensorShape> full_input_shapes;
   for (const auto& ipt : input_names) {
@@ -290,8 +290,11 @@ Result GenerateRandInputs(const ModelProto& model, std::map<string, MyTensorShap
       full_input_shapes[ipt] = GetShape(model, ipt);
     }
   }
-  Result inputs;
+  Result inputs = known_inputs;
   for (const auto& p : full_input_shapes) {
+    if (inputs.find(p.first) != inputs.end()) {
+      continue;
+    }
     size_t size = 1;
     for (const auto& dim : p.second) {
       if (dim <= 0) {
@@ -350,41 +353,66 @@ Result ForwardWithInput(const ModelProto& model_proto, Result inputs) {
         return x;
       }
     }
+    throw std::runtime_error("Cannot get input arg for " + name);
   };
 
   auto memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
+  InitializedTensorSet constant_inputs;
   for (auto& input : inputs) {
     auto input_arg = GetInputArg(input.first);
     Ort::Value input_tensor = Ort::Value::CreateTensor(memory_info, input.second.buf, input.second.byte_size(), input.second.shape.data(), input.second.shape.size(), ONNXTensorElementDataType(input.second.data_type));
-    ONNX_NAMESPACE::TensorProto input_tensorproto =
-        utils::TensorToTensorProto(input_tensor.release()->Get<Tensor>(), input_arg->Name(), *input_arg->TypeAsProto());
+    ONNX_NAMESPACE::TensorProto* input_tensorproto =
+        new ONNX_NAMESPACE::TensorProto(utils::TensorToTensorProto(input_tensor.release()->Get<Tensor>(), input_arg->Name(), *input_arg->TypeAsProto()));
 
-    graph.AddInitializedTensor(input_tensorproto);
+    // graph.AddInitializedTensor(input_tensorproto);
+    constant_inputs.emplace(input_arg->Name(), input_tensorproto);
+
+    std::cout << __LINE__ << " " << input.first << std::endl;
   }
+
+  for (const auto& x : graph.GetAllInitializedTensors()) {
+    std::cout << __LINE__ << " " << x.first << std::endl;
+    constant_inputs.emplace(x.first, x.second);
+  }
+
+  // for (const auto &x : model_proto.graph().initializer()) {
+  //     const auto *initer = graph_utils::GetConstantInitializer(graph, x.name(), true);
+  //     if (!initer) {
+  //         throw std::runtime_error("initer " + x.name() + " is not constant");
+  //     }
+  //     constant_inputs.emplace(x.name(), initer);
+  // }
 
   std::vector<std::string> output_names;
   for (const auto& x : graph.GetOutputs()) {
+    std::cout << __LINE__ << " " << x->Name() << std::endl;
+
     output_names.push_back(x->Name());
   }
+  std::cout << __LINE__ << std::endl;
   auto ret = graph.Resolve();
+  std::cout << __LINE__ << std::endl;
   if (!ret.IsOK()) {
     throw std::runtime_error(ret.ErrorMessage() + " " + ret.ToString());
   }
+  std::cout << __LINE__ << std::endl;
   GraphViewer graph_viewer(graph);
   auto& order = graph_viewer.GetNodesInTopologicalOrder();
+  std::cout << __LINE__ << std::endl;
 
   for (NodeIndex i : order) {
+    std::cout << __LINE__ << std::endl;
     auto* node = graph.GetNode(i);
+    std::cout << __LINE__ << std::endl;
     if (!node) {
       continue;
     }
+    std::cout << __LINE__ << std::endl;
 
     // TODO:
     // ORT_RETURN_IF_ERROR(Recurse(*node, modified, graph_level, logger));
 
     auto memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
-
-    InitializedTensorSet constant_inputs;
 
     // we currently constant fold using the CPU EP only.
     // if the node is assigned to a different EP we can run it if it's an ONNX op as we have CPU based implementations
@@ -394,6 +422,7 @@ Result ForwardWithInput(const ModelProto& model_proto, Result inputs) {
     auto ep_type = node->GetExecutionProviderType();
     bool cpu_ep = ep_type == kCpuExecutionProvider;
     if (!cpu_ep && node->Domain() != kOnnxDomain) {
+      std::cout << __LINE__ << std::endl;
       continue;
     }
 
@@ -403,8 +432,10 @@ Result ForwardWithInput(const ModelProto& model_proto, Result inputs) {
     if (  // constant folding does not support executing a node that includes subgraphs (control flow operators,
         // such as If/Loop/Scan, fall into this category). individual nodes in the subgraph will be processed
         // by the Recurse call above
-        node->ContainsSubgraph() ||
-        !graph_utils::AllNodeInputsAreConstant(graph, *node, constant_inputs)) {
+        node->ContainsSubgraph()
+        // || !graph_utils::AllNodeInputsAreConstant(graph, *node, constant_inputs)
+    ) {
+      std::cout << __LINE__ << std::endl;
       continue;
     }
 
@@ -412,6 +443,7 @@ Result ForwardWithInput(const ModelProto& model_proto, Result inputs) {
     if (!cpu_ep) {
       node->SetExecutionProviderType(kCpuExecutionProvider);
     }
+    std::cout << __LINE__ << std::endl;
 
     // Create execution frame for executing constant nodes.
     OptimizerExecutionFrame::Info info({node}, constant_inputs);
@@ -420,21 +452,25 @@ Result ForwardWithInput(const ModelProto& model_proto, Result inputs) {
     if (!cpu_ep) {
       node->SetExecutionProviderType(ep_type);
     }
+    std::cout << __LINE__ << std::endl;
 
     std::vector<int> fetch_mlvalue_idxs;
     for (const auto* node_out : node->OutputDefs()) {
       fetch_mlvalue_idxs.push_back(info.GetMLValueIndex(node_out->Name()));
     }
+    std::cout << __LINE__ << std::endl;
 
     OptimizerExecutionFrame frame(info, fetch_mlvalue_idxs);
 
     auto* kernel = info.GetKernel(node->Index());
     OpKernelContext op_kernel_context(&frame, kernel, nullptr, onnxruntime::logging::LoggingManager::DefaultLogger());
+    std::cout << __LINE__ << std::endl;
 
     auto s = kernel->Compute(&op_kernel_context);
     if (s != Status::OK()) {
       throw std::runtime_error(s.ErrorMessage());
     }
+    std::cout << __LINE__ << std::endl;
 
     std::vector<OrtValue> fetches;
     s = frame.GetOutputs(fetches);
@@ -445,6 +481,7 @@ Result ForwardWithInput(const ModelProto& model_proto, Result inputs) {
     // Go over all output node args and substitute them with the newly computed tensors, which will be
     // added to the graph as initializers.
     ORT_ENFORCE(fetches.size() == node->OutputDefs().size());
+    std::cout << __LINE__ << std::endl;
     for (size_t fetch_idx = 0; fetch_idx < fetches.size(); ++fetch_idx) {
       OrtValue& ort_value = fetches[fetch_idx];
 
@@ -464,34 +501,43 @@ Result ForwardWithInput(const ModelProto& model_proto, Result inputs) {
       //           std::cout << ", value " << i << ": " << out_tensor.Data<float>()[i];
       //       }
       // std::cout << std::endl;
-      ONNX_NAMESPACE::TensorProto out_tensorproto =
-          utils::TensorToTensorProto(out_tensor, constant_arg_out->Name(), *constant_arg_out->TypeAsProto());
+      ONNX_NAMESPACE::TensorProto* out_tensorproto =
+          new ONNX_NAMESPACE::TensorProto(utils::TensorToTensorProto(out_tensor, constant_arg_out->Name(), *constant_arg_out->TypeAsProto()));
 
-      graph.AddInitializedTensor(out_tensorproto);
+      constant_inputs.emplace(constant_arg_out->Name(), out_tensorproto);
+
+      // graph.AddInitializedTensor(out_tensorproto);
+
+      std::cout << __LINE__ << " " << constant_arg_out->Name() << std::endl;
 
       if (std::find(output_names.begin(), output_names.end(), constant_arg_out->Name()) != output_names.end()) {
         const auto elem_type = constant_arg_out->TypeAsProto()->tensor_type().elem_type();
 
         auto tensor = dqx::Tensor(ort_value.Get<Tensor>().DataRaw(), out_tensor.Shape().GetDims(), elem_type);
 
+        std::cout << __LINE__ << std::endl;
         outputs.emplace(constant_arg_out->Name(), tensor);
       }
     }
 
+    std::cout << __LINE__ << std::endl;
     // Remove the output edges of the constant node and then remove the node itself.
     graph_utils::RemoveNodeOutputEdges(graph, *node);
+    std::cout << __LINE__ << std::endl;
     graph.RemoveNode(node->Index());
   }
+
+  // for (auto &x : constant_inputs) {
+  //     free(const_cast<ONNX_NAMESPACE::TensorProto *>(x.second));
+  // }
+  std::cout << __LINE__ << std::endl;
   return outputs;
 }
 
 Result Forward(Ort::Env& env, const ModelProto& model, const Result& known_inputs = Result{}, const std::map<string, MyTensorShape> input_shapes = std::map<string, MyTensorShape>{}) {
-  auto rand_inputs = GenerateRandInputs(model, input_shapes);
-  for (auto& x : known_inputs) {
-    std::cout << rand_inputs[x.first].data<float>()[0] << std::endl;
-    rand_inputs[x.first] = x.second;
-    std::cout << rand_inputs[x.first].data<float>()[0] << std::endl;
-  }
+  auto rand_inputs = GenerateRandInputs(model, known_inputs, input_shapes);
+
+  std::cout << __LINE__ << " " << rand_inputs.size() << std::endl;
   Result res = ForwardWithInput(model, rand_inputs);
   return res;
 }
@@ -499,6 +545,7 @@ Result Forward(Ort::Env& env, const ModelProto& model, const Result& known_input
 // modelproto passed by value
 Result ForwardForNodeOutputs(Ort::Env& env, ModelProto model, const std::vector<NodeProto>& nodes, const std::map<string, MyTensorShape> input_shapes = std::map<string, MyTensorShape>{}) {  // add input_shapes
   AddFeatureToOutput(model, nodes);
+  std::cout << __LINE__ << std::endl;
   return Forward(env, model, Result{}, input_shapes);
 }
 
@@ -510,7 +557,10 @@ void InsertElem(google::protobuf::RepeatedPtrField<NodeProto>* repeated, int ind
 }
 
 void EliminateConstNodes(ModelProto& model, const vector<NodeProto>& const_nodes,
-                         Result& res) {
+                         const Result& res) {
+  for (const auto& x : res) {
+    std::cout << __LINE__ << "" << x.first << std::endl;
+  }
   for (int i = 0; i < model.graph().node_size(); i++) {
     const auto& node = model.graph().node(i);
 
@@ -518,6 +568,7 @@ void EliminateConstNodes(ModelProto& model, const vector<NodeProto>& const_nodes
     for (const auto& x : const_nodes) {
       if (x.SerializeAsString() == node.SerializeAsString()) {
         is_constant = true;
+        std::cout << __LINE__ << "" << x.name() << " " << x.SerializeAsString() << std::endl;
         break;
       }
     }
@@ -531,12 +582,14 @@ void EliminateConstNodes(ModelProto& model, const vector<NodeProto>& const_nodes
         new_node.clear_attribute();
         new_node.clear_output();
         new_node.add_output(output);
-        auto& v = res.at(output);
+        std::cout << __LINE__ << " " << output << std::endl;
+        const auto& v = res.at(output);
+        std::cout << __LINE__ << std::endl;
 #define ADD_ATTR_WITH_DTYPE(onnx_type, dtype)                   \
   case onnx_type: {                                             \
     std::vector<dtype> tmp;                                     \
     FOR(i, v.elem_count()) {                                    \
-      tmp.push_back(v.mutable_data<dtype>()[i]);                \
+      tmp.push_back(v.data<dtype>()[i]);                        \
     }                                                           \
     auto tp = ONNX_NAMESPACE::ToTensor(tmp);                    \
     for (const auto& dim : v.shape) {                           \
@@ -574,6 +627,7 @@ void EliminateConstNodes(ModelProto& model, const vector<NodeProto>& const_nodes
 
 ModelProto Simplify(ModelProto model, bool optimize, MyTensorShapeMap input_shapes) {
   Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "dqxdqx");
+  std::cout << __LINE__ << std::endl;
   if (optimize) {
     model = ONNX_NAMESPACE::optimization::OptimizeFixed(
         model,
@@ -588,10 +642,15 @@ ModelProto Simplify(ModelProto model, bool optimize, MyTensorShapeMap input_shap
          "fuse_consecutive_transposes", "fuse_matmul_add_bias_into_gemm",
          "fuse_pad_into_conv", "fuse_transpose_into_gemm"});
   }
+  std::cout << __LINE__ << std::endl;
   ONNX_NAMESPACE::shape_inference::InferShapes(model);
+  std::cout << __LINE__ << std::endl;
   const auto const_nodes = GetConstNode(model);
+  std::cout << __LINE__ << std::endl;
   auto res = ForwardForNodeOutputs(env, model, const_nodes, input_shapes);
+  std::cout << __LINE__ << std::endl;
   EliminateConstNodes(model, const_nodes, res);
+  std::cout << __LINE__ << std::endl;
 
   if (optimize) {
     model = ONNX_NAMESPACE::optimization::OptimizeFixed(
@@ -680,15 +739,19 @@ bool Check(const ModelProto& model1, const ModelProto& model2, std::map<string, 
   Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "dqxdqx");
   // TODO: checker
   for (int i = 0; i < n; i++) {
-    auto rand_inputs = GenerateRandInputs(model1, input_shapes);
+    auto rand_inputs = GenerateRandInputs(model1, {}, input_shapes);
     auto res1 = Forward(env, model1, rand_inputs);
     // auto res2 = Forward(env, model2, rand_inputs);
     auto res2 = Forward(env, model2, rand_inputs);
     for (auto& x : res1) {
+      std::cout << __LINE__ << std::endl;
       if (res2.find(x.first) == res2.end()) {
+        std::cout << __LINE__ << std::endl;
         return false;
       }
+      std::cout << __LINE__ << std::endl;
       if (!isEqual(res1.at(x.first), res2.at(x.first))) {
+        std::cout << __LINE__ << std::endl;
         return false;
       }
     }
@@ -697,12 +760,35 @@ bool Check(const ModelProto& model1, const ModelProto& model2, std::map<string, 
 }
 
 #ifndef __EMSCRIPTEN__
+void add_initer_to_inputs(onnx::ModelProto& model) {
+  std::vector<std::string> input_names;
+  for (const auto& x : model.graph().input()) {
+    input_names.push_back(x.name());
+  }
+  for (const auto& x : model.graph().initializer()) {
+    if (std::find(input_names.begin(), input_names.end(), x.name()) ==
+        input_names.end()) {
+      auto* value_info = model.mutable_graph()->add_input();
+      value_info->set_name(x.name());
+      onnx::TypeProto* type = value_info->mutable_type();
+      auto* tensor = type->mutable_tensor_type();
+      tensor->set_elem_type(x.data_type());
+      auto* shape = tensor->mutable_shape();
+      for (const auto& dim : x.dims()) {
+        onnx::TensorShapeProto::Dimension* new_dim = shape->add_dim();
+        new_dim->set_dim_value(dim);
+      }
+    }
+  }
+}
+
 int main(int argc, char** argv) {
   ONNX_NAMESPACE::ModelProto model_proto;
   std::ifstream ifs(argv[1]);
   model_proto.ParseFromIstream(&ifs);
-  auto new_model = Simplify(model_proto);
-  bool check = Check(new_model, model_proto);
+  add_initer_to_inputs(model_proto);
+  auto new_model = Simplify(model_proto, true, {{"data", {1, 3, 224, 224}}});
+  bool check = Check(new_model, model_proto, {{"data", {1, 3, 224, 224}}});
   if (check) {
     std::cout << "check ok" << std::endl;
   } else {

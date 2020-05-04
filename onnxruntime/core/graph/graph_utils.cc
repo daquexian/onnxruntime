@@ -537,10 +537,14 @@ bool AllNodeInputsAreConstant(const Graph& graph, const Node& node, InitializedT
     // Important note: when an initializer appears in the graph's input, this input will not be considered constant,
     // because it can be overridden by the user at runtime. For constant folding to be applied, the initializer should
     // not appear in the graph's inputs (that is the only way to guarantee it will always be constant).
+    std::cout << __LINE__ << " " << input_def->Name() << std::endl;
     const ONNX_NAMESPACE::TensorProto* initializer = GetConstantInitializer(graph, input_def->Name(), true);
+    std::cout << __LINE__ << std::endl;
     if (initializer) {
+    std::cout << __LINE__ << std::endl;
       constant_inputs.insert({input_def->Name(), initializer});
     } else {
+    std::cout << __LINE__ << std::endl;
       constant_inputs.clear();
       return false;
     }
