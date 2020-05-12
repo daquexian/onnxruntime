@@ -556,10 +556,31 @@ void InsertElem(google::protobuf::RepeatedPtrField<NodeProto>* repeated, int ind
   }
 }
 
+/*
+def clean_constant_nodes(const_nodes: List[onnx.NodeProto], res: Dict[str, np.ndarray]):
+    """
+    It seems not needed since commit 6f2a72, but maybe it still prevents some unknown bug
+    :param const_nodes: const nodes detected by `get_constant_nodes`
+    :param res: The dict containing all tensors, got by `forward_all`
+    :return: The constant nodes which have an output in res
+    """
+    return [node for node in const_nodes if node.output[0] in res]
+    */
+
+vector<NodeProto> CleanConstantNodes(const vector<NodeProto>& const_nodes, const Result& res) {
+  vector<NodeProto> cleaned;
+  for (const auto& node : const_nodes) {
+    if (res.find(node.output(0)) != res.end()) {
+      cleaned.push_back(node);
+    }
+  }
+  return cleaned;
+}
+
 void EliminateConstNodes(ModelProto& model, const vector<NodeProto>& const_nodes,
                          const Result& res) {
   for (const auto& x : res) {
-    std::cout << __LINE__ << "" << x.first << std::endl;
+    std::cout << __LINE__ << " " << x.first << std::endl;
   }
   for (int i = 0; i < model.graph().node_size(); i++) {
     const auto& node = model.graph().node(i);
@@ -645,19 +666,21 @@ ModelProto Simplify(ModelProto model, bool optimize, MyTensorShapeMap input_shap
   std::cout << __LINE__ << std::endl;
   ONNX_NAMESPACE::shape_inference::InferShapes(model);
   std::cout << __LINE__ << std::endl;
-  const auto const_nodes = GetConstNode(model);
+  auto const_nodes = GetConstNode(model);
   std::cout << __LINE__ << std::endl;
   auto res = ForwardForNodeOutputs(env, model, const_nodes, input_shapes);
+  std::cout << __LINE__ << std::endl;
+  const_nodes = CleanConstantNodes(const_nodes, res);
   std::cout << __LINE__ << std::endl;
   EliminateConstNodes(model, const_nodes, res);
   std::cout << __LINE__ << std::endl;
 
+  model = ONNX_NAMESPACE::optimization::OptimizeFixed(model, {"extract_constant_to_initializer", "eliminate_unused_initializer"});
   if (optimize) {
     model = ONNX_NAMESPACE::optimization::OptimizeFixed(
         model,
         {"eliminate_deadend", "eliminate_identity", "eliminate_nop_dropout",
          "eliminate_nop_monotone_argmax", "eliminate_nop_pad",
-         "extract_constant_to_initializer", "eliminate_unused_initializer",
          "eliminate_nop_transpose", "fuse_add_bias_into_conv",
          "fuse_consecutive_concats",
          "fuse_bn_into_conv",
